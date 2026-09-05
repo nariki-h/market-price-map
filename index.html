@@ -1,0 +1,3003 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不動産相場 地図帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDvA3SEwGJ9YGZn_UpceafXL4MXT4AD8mI",
+    authDomain: "real-estate--market-map.firebaseapp.com",
+    projectId: "real-estate--market-map",
+    storageBucket: "real-estate--market-map.firebasestorage.app",
+    messagingSenderId: "668217908650",
+    appId: "1:668217908650:web:300acf71d318f27ca45fd3",
+    measurementId: "G-QPKF76MDE9"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.fbAuth = auth;
+  window.fbDb = db;
+  window.fbHelpers = {
+    collection, doc, setDoc, deleteDoc, onSnapshot,
+    signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged
+  };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Noto Sans JP', -apple-system, sans-serif;
+    color: #1c201c;
+    background: #f5f1e8;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: #1c201c;
+    color: #f5f1e8;
+    padding: 12px 20px;
+    border-bottom: 3px double #c9a961;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  header h1 span { color: #c9a961; }
+  .subtitle {
+    font-size: 11px;
+    opacity: 0.6;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.1em;
+    margin-left: 12px;
+  }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .count-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    opacity: 0.7;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: #c9a961;
+    color: #1c201c;
+    border: none;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 4px;
+  }
+  .btn-primary:hover { background: #b89548; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid #c9a961;
+    color: #c9a961;
+    padding: 6px 12px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 4px;
+  }
+  .btn-ghost:hover { background: rgba(201, 169, 97, 0.1); }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid #c9c0a8;
+    color: #3a342a;
+    padding: 8px 12px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 4px;
+  }
+  .btn-secondary:hover { border-color: #2d4a2b; color: #2d4a2b; }
+
+  .body-container {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  aside {
+    width: 360px;
+    background: #fdfcf7;
+    border-right: 1px solid #c9c0a8;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  aside.hidden { display: none; }
+
+  .search-area {
+    padding: 14px;
+    border-bottom: 1px solid #e8e3d5;
+  }
+  input, select, textarea {
+    font-family: inherit;
+    background: #fdfcf7;
+    border: 1px solid #c9c0a8;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #1c201c;
+    width: 100%;
+    border-radius: 3px;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #2d4a2b;
+    box-shadow: 0 0 0 2px rgba(45, 74, 43, 0.15);
+  }
+
+  .legend {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #5a5448;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .property-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .property-list::-webkit-scrollbar { width: 6px; }
+  .property-list::-webkit-scrollbar-track { background: #f5f1e8; }
+  .property-list::-webkit-scrollbar-thumb { background: #c9c0a8; border-radius: 3px; }
+
+  .property-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid #e8e3d5;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .property-item:hover { background: #f5f1e8; }
+  .property-item.selected { background: #f5f1e8; }
+  .property-item .name {
+    font-size: 14px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .property-item .address {
+    font-size: 11px;
+    color: #5a5448;
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .property-item .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #7a7060;
+    margin-top: 4px;
+  }
+  .property-item .price {
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 3px;
+  }
+  .pill {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-right: 5px;
+    font-weight: 500;
+  }
+
+  main {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+  }
+  #map {
+    width: 100%;
+    height: 100%;
+    background: #e8e3d5;
+  }
+
+  .empty-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(253, 252, 247, 0.95);
+    padding: 18px 26px;
+    border: 1px solid #c9c0a8;
+    box-shadow: 0 4px 16px rgba(28,32,28,0.1);
+    text-align: center;
+    z-index: 5;
+    border-radius: 4px;
+  }
+  .empty-hint .icon {
+    font-size: 28px;
+    color: #c9a961;
+    margin-bottom: 6px;
+  }
+
+  .detail-card {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 340px;
+    max-height: calc(100% - 32px);
+    background: #fdfcf7;
+    box-shadow: 0 8px 28px rgba(28,32,28,0.18);
+    border: 1px solid #c9c0a8;
+    z-index: 100;
+    overflow-y: auto;
+    display: none;
+    border-radius: 4px;
+  }
+  .detail-card::-webkit-scrollbar { width: 6px; }
+  .detail-card::-webkit-scrollbar-thumb { background: #c9c0a8; border-radius: 3px; }
+  .detail-card .header-row {
+    padding: 12px 14px;
+    background: #1c201c;
+    color: #fdfcf7;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .detail-card .header-row h3 {
+    font-size: 15px;
+    font-weight: 700;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .close-btn {
+    background: transparent;
+    border: none;
+    color: #fdfcf7;
+    font-size: 22px;
+    line-height: 1;
+    padding: 0;
+  }
+  .actions-row {
+    padding: 12px 14px;
+    background: #f5f1e8;
+    border-bottom: 1px solid #e8e3d5;
+    display: flex;
+    gap: 6px;
+  }
+  .btn-action {
+    flex: 1;
+    padding: 9px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 3px;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-sv {
+    background: #2d4a2b;
+    color: #fdfcf7;
+  }
+  .btn-sv:hover { background: #1f3a1d; }
+  .btn-gm {
+    background: #fdfcf7;
+    color: #2d4a2b;
+    border: 1px solid #2d4a2b;
+  }
+  .btn-gm:hover { background: #e8efe7; }
+
+  .detail-content { padding: 14px; }
+  .detail-address {
+    font-size: 12px;
+    color: #5a5448;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    margin-bottom: 10px;
+  }
+  .detail-item .label {
+    font-size: 10px;
+    color: #7a7060;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    margin-bottom: 1px;
+  }
+  .detail-item .value {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .memo-box {
+    background: #f5f1e8;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #3a342a;
+    border-left: 2px solid #c9a961;
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    line-height: 1.5;
+    border-radius: 0;
+  }
+  .edit-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 32, 28, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-content {
+    background: #fdfcf7;
+    width: 100%;
+    max-width: 540px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    border-radius: 4px;
+  }
+  .modal-content::-webkit-scrollbar { width: 6px; }
+  .modal-content::-webkit-scrollbar-thumb { background: #c9c0a8; border-radius: 3px; }
+  .modal-header {
+    padding: 14px 18px;
+    background: #1c201c;
+    color: #fdfcf7;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .modal-body { padding: 18px; }
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #3a342a;
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  .field .required { color: #b91c1c; }
+  .field .hint {
+    font-size: 11px;
+    color: #7a7060;
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .unit-pair {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .unit-pair input { width: auto; flex: 1; min-width: 0; }
+  .unit-pair .unit-suffix {
+    font-size: 12px;
+    color: #5a5448;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .modal-footer {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    justify-content: flex-end;
+  }
+
+  .api-key-screen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #f5f1e8;
+  }
+  .api-key-card {
+    background: #fdfcf7;
+    border: 1px solid #c9c0a8;
+    padding: 32px;
+    max-width: 520px;
+    width: 100%;
+    border-radius: 4px;
+  }
+  .api-key-card h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #b91c1c;
+  }
+  .api-key-card p {
+    font-size: 13px;
+    color: #3a342a;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .api-key-card code {
+    background: #f5f1e8;
+    padding: 2px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    border-radius: 2px;
+  }
+
+  .status-line {
+    font-size: 12px;
+    color: #5a5448;
+    margin-top: 8px;
+    text-align: right;
+    min-height: 16px;
+  }
+
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #7a7060;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e8e3d5;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .meta-row .agent {
+    color: #2d4a2b;
+    font-weight: 600;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .file-drop-zone {
+    border: 1px dashed #c9c0a8;
+    background: #fdfcf7;
+    padding: 14px;
+    text-align: center;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .file-drop-zone:hover, .file-drop-zone.drag-over {
+    border-color: #c9a961;
+    background: #fef9ec;
+  }
+  .file-drop-zone .icon {
+    font-size: 24px;
+    color: #c9a961;
+    margin-bottom: 4px;
+  }
+  .file-drop-zone .text {
+    font-size: 12px;
+    color: #5a5448;
+  }
+  .file-drop-zone .hint {
+    font-size: 10px;
+    color: #9a9080;
+    margin-top: 2px;
+  }
+  .file-drop-zone input[type="file"] {
+    display: none;
+  }
+
+  .attachments-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .attachment-item {
+    position: relative;
+    background: #f5f1e8;
+    border: 1px solid #c9c0a8;
+    border-radius: 3px;
+    overflow: hidden;
+    aspect-ratio: 1;
+  }
+  .attachment-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+  }
+  .attachment-item.pdf {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    color: #3a342a;
+  }
+  .attachment-item.pdf:hover { background: #e8e3d5; }
+  .attachment-item.pdf .pdf-icon {
+    font-size: 24px;
+    color: #b91c1c;
+    margin-bottom: 4px;
+  }
+  .attachment-item.pdf .pdf-name {
+    font-size: 9px;
+    text-align: center;
+    word-break: break-all;
+    line-height: 1.2;
+    max-height: 36px;
+    overflow: hidden;
+  }
+  .attachment-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(28, 32, 28, 0.7);
+    color: #fff;
+    border: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .attachment-remove:hover { background: #b91c1c; }
+
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    cursor: zoom-out;
+  }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .lightbox .close-lb {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    color: #fff;
+    font-size: 32px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .map-search-bar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    width: 360px;
+    max-width: calc(100% - 24px);
+    background: #fdfcf7;
+    border: 1px solid #c9c0a8;
+    border-radius: 4px;
+    box-shadow: 0 3px 12px rgba(28,32,28,0.15);
+    display: flex;
+    align-items: center;
+    padding: 0 4px 0 12px;
+  }
+  .map-search-bar input {
+    border: none;
+    background: transparent;
+    padding: 9px 4px;
+    font-size: 13px;
+    flex: 1;
+    width: auto;
+  }
+  .map-search-bar input:focus {
+    outline: none;
+    box-shadow: none;
+  }
+  .map-search-bar button {
+    background: transparent;
+    border: none;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: #5a5448;
+    font-size: 14px;
+  }
+  .map-search-bar button:hover { color: #2d4a2b; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+    margin-right: 5px;
+  }
+  .status-badge.consulting {
+    background: #f5f1e8;
+    color: #7a7060;
+    border: 1px dashed #c9c0a8;
+  }
+  .status-badge.listed {
+    background: #c9a961;
+    color: #1c201c;
+  }
+  .status-badge.closed {
+    background: #2d4a2b;
+    color: #f5f1e8;
+  }
+
+  .status-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .status-option {
+    padding: 8px 4px;
+    text-align: center;
+    border: 1px solid #c9c0a8;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    background: #fdfcf7;
+    transition: all 0.15s;
+  }
+  .status-option:hover { border-color: #c9a961; }
+  .status-option.active.consulting {
+    background: #f5f1e8;
+    border-color: #7a7060;
+    color: #3a342a;
+  }
+  .status-option.active.listed {
+    background: #c9a961;
+    border-color: #c9a961;
+    color: #1c201c;
+  }
+  .status-option.active.closed {
+    background: #2d4a2b;
+    border-color: #2d4a2b;
+    color: #f5f1e8;
+  }
+
+  .status-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #5a5448;
+  }
+
+  /* ===== 企画検討(新築・分割) ===== */
+  .plan-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-mini {
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid #c9c0a8;
+    background: #fdfcf7;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    color: #3a342a;
+    white-space: nowrap;
+  }
+  .btn-mini:hover { border-color: #c9a961; background: #f5f1e8; }
+  .plan-card {
+    border: 1px solid #c9c0a8;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 8px;
+    background: #faf8f2;
+  }
+  .plan-card.adopted { border-color: #c9a961; border-width: 2px; background: #fdf9ee; }
+  .plan-card-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .plan-card-head input.plan-name {
+    flex: 1;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .plan-adopt {
+    font-size: 11px;
+    color: #5a5448;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .plan-del {
+    border: none;
+    background: none;
+    color: #b91c1c;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .plan-card label.mini {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: #5a5448;
+    margin: 6px 0 3px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  .plan-card input[type="number"],
+  .plan-card input[type="text"] {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #c9c0a8;
+    border-radius: 3px;
+    background: #fdfcf7;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .plan-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .plan-prices {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 6px;
+  }
+  .plan-price-cell { position: relative; }
+  .plan-price-cell .no {
+    position: absolute;
+    left: 6px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #9a9078;
+    pointer-events: none;
+  }
+  .plan-price-cell input { padding-left: 22px !important; }
+  .plan-auto {
+    font-size: 11px;
+    color: #7a7060;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+  .plan-auto a {
+    color: #8a6d1f;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .plan-result {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px dashed #c9c0a8;
+    font-size: 11px;
+    line-height: 1.7;
+    color: #5a5448;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .plan-result .big { font-size: 14px; font-weight: 700; }
+  .plan-result .pos { color: #1d7a4f; }
+  .plan-result .neg { color: #b91c1c; }
+
+  /* 詳細カード内の企画表示 */
+  .plan-detail {
+    border: 1px solid #ddd5c0;
+    border-radius: 3px;
+    padding: 8px;
+    margin-bottom: 6px;
+    background: #faf8f2;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .plan-detail.adopted { border-color: #c9a961; background: #fdf9ee; }
+  .plan-detail .pname { font-weight: 700; font-size: 12px; color: #3a342a; }
+  .plan-detail .tag {
+    font-size: 9px;
+    background: #c9a961;
+    color: #1c201c;
+    padding: 1px 5px;
+    border-radius: 2px;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+  .plan-detail .pos { color: #1d7a4f; font-weight: 700; }
+  .plan-detail .neg { color: #b91c1c; font-weight: 700; }
+
+  @media (max-width: 768px) {
+    aside { width: 100%; position: absolute; height: 50%; bottom: 0; z-index: 50; }
+    aside.hidden { display: none; }
+    main { width: 100%; height: 100%; }
+    .detail-card { width: calc(100% - 24px); right: 12px; left: 12px; bottom: 60px; }
+  }
+
+
+  /* ===== 警告バー ===== */
+  .warn-bar {
+    display: none; align-items: center; gap: 10px;
+    padding: 7px 14px; font-size: 12px; font-weight: 600;
+  }
+  .warn-bar.anon { background: #7f1d1d; color: #fee2e2; }
+  .warn-bar.backup { background: #fde68a; color: #78350f; }
+  .warn-bar button {
+    margin-left: auto; border: 1px solid currentColor; background: transparent;
+    color: inherit; font-size: 11px; padding: 3px 10px; border-radius: 3px; cursor: pointer;
+    font-family: inherit;
+  }
+  /* ===== 絞り込み ===== */
+  .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .search-area select, .search-area input[type="text"], .search-area input[type="number"] {
+    width: 100%; padding: 7px 9px; border: 1px solid #c9c0a8; border-radius: 3px;
+    background: #fdfcf7; font-size: 13px; font-family: inherit;
+  }
+  .collapse-btn {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    font-size: 11px; font-weight: 600; color: #7a6a3a; padding: 6px 0;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;
+  }
+  .collapse-btn:hover { color: #c9a961; }
+  .filter-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 11px; color: #7a7060; }
+  .filter-meta button { border: 1px solid #c9c0a8; background: #fdfcf7; font-size: 11px; padding: 3px 9px; border-radius: 3px; cursor: pointer; font-family: inherit; }
+  .chk { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #3a342a; margin-top: 8px; cursor: pointer; }
+  #radius-box { margin-top: 8px; padding: 7px 8px; background: #faf6ea; border: 1px solid #ddd0a8; border-radius: 3px; }
+  #radius-box .rl { font-size: 11px; color: #7a6a3a; margin-bottom: 4px; }
+  .li-sub { font-size: 11px; color: #7a7060; margin-left: 6px; }
+  .li-station { font-size: 11px; color: #5a6a55; margin-top: 3px; }
+  .li-plan { font-size: 11px; margin-top: 3px; font-family: 'JetBrains Mono', monospace; }
+  .li-plan.pos { color: #1d7a4f; } .li-plan.neg { color: #b91c1c; }
+  .detail-station { font-size: 12px; color: #5a6a55; margin-bottom: 6px; }
+  .sec-label { font-size: 10px; color: #7a7060; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; margin-bottom: 6px; }
+  /* ===== 最寄駅 ===== */
+  .st-row { display: grid; grid-template-columns: 1.2fr 1fr 56px 24px; gap: 5px; margin-bottom: 5px; align-items: center; }
+  .st-row input { padding: 6px 8px; border: 1px solid #c9c0a8; border-radius: 3px; background: #fdfcf7; font-size: 13px; font-family: inherit; width: 100%; }
+  /* ===== 借地 ===== */
+  .lease-box { border: 1px solid #d8cbe8; background: #f8f5fc; border-radius: 4px; padding: 10px; }
+  .lease-title { font-size: 11px; font-weight: 700; color: #4a3a6a; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; }
+  .lease-total { font-size: 12px; font-weight: 700; color: #3f2d5c; text-align: right; }
+  /* ===== 企画パターン ===== */
+  .plan-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .btn-mini { font-size: 11px; padding: 4px 10px; border: 1px solid #c9c0a8; background: #fdfcf7; border-radius: 3px; cursor: pointer; font-family: 'JetBrains Mono', monospace; color: #3a342a; white-space: nowrap; }
+  .btn-mini:hover { border-color: #c9a961; background: #f5f1e8; }
+  .plan-card { border: 1px solid #c9c0a8; border-radius: 4px; padding: 10px; margin-top: 8px; background: #faf8f2; }
+  .plan-card.adopted { border-color: #c9a961; border-width: 2px; background: #fdf9ee; }
+  .plan-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .plan-card-head input.plan-name { flex: 1; font-weight: 700; font-size: 13px; }
+  .plan-adopt { font-size: 11px; color: #5a5448; display: flex; align-items: center; gap: 3px; white-space: nowrap; cursor: pointer; }
+  .plan-del { border: none; background: none; color: #b91c1c; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+  .plan-card label.mini { display: block; font-size: 10px; font-weight: 600; color: #5a5448; margin: 6px 0 3px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+  .plan-card input, .plan-card select { width: 100%; padding: 6px 8px; border: 1px solid #c9c0a8; border-radius: 3px; background: #fdfcf7; font-size: 13px; font-family: inherit; }
+  .plan-card input:disabled { background: #eceae2; color: #9a9080; }
+  .plan-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .lot-head, .lot-row { display: grid; grid-template-columns: 22px 1fr 1fr 1fr; gap: 5px; align-items: center; }
+  .lot-head { font-size: 9px; color: #7a7060; font-family: 'JetBrains Mono', monospace; margin-bottom: 3px; text-align: center; }
+  .lot-row { margin-bottom: 4px; }
+  .lot-no { font-size: 11px; color: #9a9078; text-align: center; }
+  .plan-auto { font-size: 11px; color: #7a7060; margin-top: 6px; line-height: 1.5; }
+  .plan-auto a { color: #8a6d1f; text-decoration: underline; cursor: pointer; }
+  .plan-result { margin-top: 9px; padding-top: 8px; border-top: 1px dashed #c9c0a8; font-size: 11px; line-height: 1.7; color: #5a5448; font-family: 'JetBrains Mono', monospace; }
+  .plan-result .big { font-size: 14px; font-weight: 700; }
+  .plan-result .pos, .plan-detail .pos { color: #1d7a4f; }
+  .plan-result .neg, .plan-detail .neg { color: #b91c1c; }
+  .plan-detail { border: 1px solid #ddd5c0; border-radius: 3px; padding: 8px; margin-bottom: 6px; background: #faf8f2; font-size: 11px; line-height: 1.6; }
+  .plan-detail.adopted { border-color: #c9a961; background: #fdf9ee; }
+  .plan-detail .pname { font-weight: 700; font-size: 12px; color: #3a342a; }
+  .plan-detail .tag { font-size: 9px; background: #c9a961; color: #1c201c; padding: 1px 5px; border-radius: 2px; margin-left: 5px; }
+  .plan-detail .pos, .plan-detail .neg { font-weight: 700; }
+  /* ===== バックアップモーダル ===== */
+  .bk-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border: 1px solid #ddd5c0; border-radius: 3px; margin-bottom: 5px; background: #faf8f2; font-size: 12px; }
+  .bk-meta { color: #7a7060; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex; align-items:baseline;">
+    <h1>不動産相場 <span>地図帳</span></h1>
+    <span class="subtitle">REAL ESTATE · MARKET MAP</span>
+  </div>
+  <div class="header-actions">
+    <span id="user-info" style="display:none"></span>
+    <span id="sync-status" style="font-size:11px; opacity:0.7; font-family:'JetBrains Mono',monospace;"></span>
+    <span class="count-badge" id="count-badge">0 件</span>
+    <button class="btn-ghost" id="login-btn">Googleログイン</button>
+    <button class="btn-ghost" id="logout-btn" style="display:none">ログアウト</button>
+    <button class="btn-ghost" id="toggle-list-btn">リストを隠す</button>
+    <button class="btn-ghost" id="backup-btn">バックアップ</button>
+    <button class="btn-ghost" id="export-btn">CSV出力</button>
+    <button class="btn-ghost" id="import-btn">CSV読込</button>
+    <input type="file" id="import-file" accept=".csv" style="display:none">
+    <button class="btn-primary" id="add-btn">＋ 物件を追加</button>
+  </div>
+</header>
+<div class="warn-bar anon" id="warn-anon">
+  <span>⚠ 匿名ユーザーでログイン中です。Googleアカウントとはデータが別管理になります。</span>
+</div>
+<div class="warn-bar backup" id="warn-backup">
+  <span class="warn-text"></span>
+  <button id="warn-backup-btn">今すぐ保存</button>
+</div>
+<div class="body-container">
+  <aside id="sidebar">
+    <div class="search-area">
+      <input type="text" id="search-input" placeholder="🔍 物件名・住所・担当・メモで検索...">
+      <div class="filter-row">
+        <select id="type-filter"><option value="">すべての種別</option></select>
+        <select id="status-filter">
+          <option value="">すべてのステータス</option>
+          <option value="consulting">相談中</option>
+          <option value="listed">物件化</option>
+          <option value="closed">成約</option>
+        </select>
+      </div>
+      <select id="sort-select" style="margin-top:6px">
+        <option value="updated">並び替え: 更新が新しい順</option>
+        <option value="created">入力が新しい順</option>
+        <option value="price_desc">価格が高い順</option>
+        <option value="price_asc">価格が安い順</option>
+        <option value="area_desc">面積が広い順</option>
+        <option value="walk_asc">駅から近い順</option>
+        <option value="name">物件名順</option>
+      </select>
+      <button type="button" class="collapse-btn" id="adv-toggle">＋ 詳細条件</button>
+      <div id="adv-body" style="display:none">
+        <div class="filter-row">
+          <input type="text" inputmode="numeric" class="jsnum" id="f-price-min" placeholder="価格 下限(万)">
+          <input type="text" inputmode="numeric" class="jsnum" id="f-price-max" placeholder="価格 上限(万)">
+        </div>
+        <div class="filter-row">
+          <input type="text" inputmode="decimal" class="jsnum" id="f-area-min" placeholder="面積 下限(㎡)">
+          <input type="text" inputmode="decimal" class="jsnum" id="f-area-max" placeholder="面積 上限(㎡)">
+        </div>
+        <div class="filter-row">
+          <input type="text" inputmode="numeric" class="jsnum" id="f-walk-max" placeholder="徒歩 ○分以内">
+          <span></span>
+        </div>
+        <label class="chk"><input type="checkbox" id="f-in-bounds"> 地図に映っている範囲のみ</label>
+        <div id="radius-box" style="display:none">
+          <div class="rl">📍 <span id="radius-label"></span> からの距離で絞る</div>
+          <select id="radius-select">
+            <option value="0">絞り込まない</option>
+            <option value="400">半径 400m (徒歩5分)</option>
+            <option value="800">半径 800m (徒歩10分)</option>
+            <option value="1200">半径 1.2km (徒歩15分)</option>
+            <option value="2000">半径 2km</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-meta">
+        <span id="filter-count">0 / 0 件</span>
+        <button id="filter-clear">条件をクリア</button>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="property-list" id="property-list"></div>
+  </aside>
+  <main>
+    <div id="map"></div>
+    <div class="map-search-bar">
+      <input type="text" id="map-search-input" placeholder="🔍 駅名・住所・地名で地図を検索..." autocomplete="off">
+      <button id="map-search-clear" title="クリア" style="display:none">×</button>
+    </div>
+    <div class="empty-hint" id="empty-hint">
+      <div class="icon">📍</div>
+      <p style="font-size:13px; color:#3a342a;">右上の<strong>「＋ 物件を追加」</strong>から始めましょう</p>
+    </div>
+    <div class="detail-card" id="detail-card" style="display:none"></div>
+  </main>
+</div>
+<div id="modal-mount"></div>
+<script>
+/* ===== 追加定数 ===== */
+const TSUBO = 3.305785;                 // 1坪 = 3.305785㎡
+const MAX_UNITS = 12;
+const CIRCLED = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+
+const GRADES = [
+  { name: 'ローコスト',  tsubo: 65 },
+  { name: '標準',        tsubo: 80 },
+  { name: 'ハイグレード', tsubo: 100 },
+  { name: '高級',        tsubo: 125 },
+];
+const SELL_TYPES = ['更地分譲', '建売分譲', '一棟', '現況渡し'];
+const LEASE_TYPES = ['旧法借地権', '普通借地権', '定期借地権'];
+
+// 物件種別ごとに表示する入力項目
+const TYPE_SPEC = {
+  '区分マンション': { layout:1, age:1, bldg:1, price:1, income:1 },
+  '一棟マンション': { age:1, land:1, bldg:1, bcr:1, price:1, income:1, plans:1 },
+  '一棟アパート':   { age:1, land:1, bldg:1, bcr:1, price:1, income:1, plans:1 },
+  '戸建て':         { layout:1, age:1, land:1, bldg:1, bcr:1, price:1, income:1, plans:1 },
+  '土地':           { land:1, bcr:1, price:1, plans:1 },
+  '借地':           { land:1, bcr:1, lease:1, plans:1 },
+  'その他':         { layout:1, age:1, land:1, bldg:1, bcr:1, price:1, income:1, plans:1 },
+};
+const specOf = (type) => TYPE_SPEC[type] || TYPE_SPEC['その他'];
+
+const num = (v) => { if (v == null || v === '') return 0; const n = Number(v); return isNaN(n) ? 0 : n; };
+const man = (v) => Math.round(v).toLocaleString();
+
+/* ===== 数値入力の全角→半角変換 =====
+   type="number" は日本語IMEをブラウザ側で強制的に無効化してしまい、
+   その状態が他の入力欄にも残って「半角固定」になる原因になるため、
+   数値系の入力欄は type="text" + inputmode にし、ここで半角化・不正文字除去を行う */
+const normalizeNumericStr = (v) => {
+  let s = String(v ?? '')
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[．。]/g, '.')
+    .replace(/[－ー―‐]/g, '-');
+  let sign = '';
+  if (s[0] === '-') { sign = '-'; s = s.slice(1); }
+  s = s.replace(/[^0-9.]/g, '');
+  const dot = s.indexOf('.');
+  if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '');
+  return sign + s;
+};
+function sanitizeNumericInput(el) {
+  const before = el.value;
+  const after = normalizeNumericStr(before);
+  if (after === before) return;
+  const start = el.selectionStart ?? after.length;
+  const diff = before.length - after.length;
+  el.value = after;
+  const pos = Math.max(0, start - diff);
+  try { el.setSelectionRange(pos, pos); } catch (e) {}
+}
+// キャプチャフェーズで document に仕込むことで、各入力欄に個別にバインドされた
+// input リスナー(保存処理など)が値を読む前に半角化を済ませておく
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.matches && e.target.matches('input.jsnum')) sanitizeNumericInput(e.target);
+}, true);
+
+// 表示・並び替え用の代表面積（土地系は土地面積、区分は建物面積）
+const areaOf = (p) => {
+  const s = specOf(p.type);
+  if (s.land && num(p.landArea)) return num(p.landArea);
+  if (s.bldg && num(p.bldgArea)) return num(p.bldgArea);
+  return num(p.landArea) || num(p.bldgArea) || num(p.area);
+};
+// 借地は「借地権価格＋建物価格」を総額とみなす
+const priceOf = (p) => {
+  if (p.type === '借地') {
+    const t = num(p.leaseValue) + num(p.bldgValue);
+    return t > 0 ? t : num(p.price);
+  }
+  return num(p.price);
+};
+const walkOf = (p) => {
+  const mins = (p.stations || []).map(s => num(s.min)).filter(v => v > 0);
+  return mins.length ? Math.min(...mins) : null;
+};
+const stationLabel = (p) => (p.stations || [])
+  .filter(s => s.name)
+  .map(s => `${s.name}${s.min ? ' 徒歩' + s.min + '分' : ''}`)
+  .join(' / ');
+
+/* ===== 企画検討の計算 ===== */
+function planCalc(prop, plan) {
+  const units = Math.min(MAX_UNITS, Math.max(1, parseInt(plan.units) || 1));
+  const lots = (plan.lots || []).slice(0, units);
+  const landSum  = lots.reduce((s, l) => s + num(l.land), 0);
+  const floorSum = lots.reduce((s, l) => s + num(l.floor), 0);
+  const revenue  = lots.reduce((s, l) => s + num(l.price), 0);
+
+  const totalLand = areaOf(prop);
+  const roadArea = totalLand > 0 ? totalLand - landSum : 0;
+
+  const noBuild = plan.sellType === '更地分譲' || plan.sellType === '現況渡し';
+  const tsuboUnit = num(plan.tsuboUnit);
+  const buildCost = noBuild ? 0 : (floorSum / TSUBO) * tsuboUnit;
+
+  const landCost = priceOf(prop);
+  const devCost = num(plan.devCost);
+  const cost = landCost + buildCost + devCost;
+  const profit = revenue - cost;
+  const margin = revenue > 0 ? (profit / revenue * 100) : null;
+
+  return { units, lots, landSum, floorSum, revenue, totalLand, roadArea,
+           noBuild, buildCost, landCost, devCost, cost, profit, margin };
+}
+const sortedPlans = (p) => (p.plans || [])
+  .map((pl, i) => ({ pl, i, c: planCalc(p, pl) }));
+const bestPlan = (p) => { const l = sortedPlans(p); return l.find(x => x.pl.adopted) || l[0] || null; };
+
+// 2点間の距離(m) — 駅からの半径検索用
+function distanceM(lat1, lng1, lat2, lng2) {
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*rad) * Math.cos(lat2*rad) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/* ===== バックアップ ===== */
+const BK_LATEST = 'rem_bk_latest';
+const BK_GENS   = 'rem_bk_gens';
+const BK_LAST   = 'rem_bk_lastfile';
+
+const lightCopy = (list) => list.map(({ attachments, ...rest }) => rest);
+
+// Firestore同期のたびに呼ばれる。データが消えた場合は世代を上書きしない
+function autoBackup(list) {
+  try {
+    const slim = lightCopy(list);
+    const prev = JSON.parse(localStorage.getItem(BK_LATEST) || 'null');
+    localStorage.setItem(BK_LATEST, JSON.stringify({ ts: Date.now(), count: slim.length, data: slim }));
+
+    // 件数が激減したときは世代バックアップを守る(誤削除対策)
+    if (prev && prev.count > 0 && slim.length < prev.count * 0.5) {
+      console.warn('件数が大幅に減少したため世代バックアップは更新しません');
+      setSyncStatus('⚠ 件数が減少 — 復元可能', '#b45309');
+      return;
+    }
+    const gens = JSON.parse(localStorage.getItem(BK_GENS) || '[]');
+    const today = new Date().toISOString().slice(0, 10);
+    const entry = { date: today, ts: Date.now(), count: slim.length, data: slim };
+    if (gens.length && gens[gens.length - 1].date === today) gens[gens.length - 1] = entry;
+    else gens.push(entry);
+    while (gens.length > 5) gens.shift();
+    localStorage.setItem(BK_GENS, JSON.stringify(gens));
+  } catch (e) {
+    console.warn('自動バックアップ失敗:', e);
+  }
+}
+
+// 完全バックアップ(添付込み)をJSONで書き出す
+function downloadBackup() {
+  const payload = {
+    app: 'realestate-map', version: 2,
+    exportedAt: new Date().toISOString(),
+    count: properties.length,
+    properties: properties,
+  };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  localStorage.setItem(BK_LAST, String(Date.now()));
+  updateBackupWarning();
+}
+
+async function restoreList(list, label) {
+  if (!list || !list.length) { alert('復元できるデータがありません'); return; }
+  if (!confirm(`${label}\n${list.length}件を復元します。\n同じ物件名+住所の既存データは上書きされます。よろしいですか?`)) return;
+  setSyncStatus('復元中...', '#c9a961');
+  const byKey = new Map(properties.map(p => [`${p.name}|${p.address}`, p]));
+  let ok = 0;
+  for (const item of list) {
+    const exist = byKey.get(`${item.name}|${item.address}`);
+    const data = { ...item, id: exist ? exist.id : (item.id || String(Date.now() + Math.random())) };
+    if (await savePropertyToFirestore(data)) ok++;
+  }
+  setSyncStatus('● 同期済み', '#1D9E75');
+  alert(`${ok}件を復元しました`);
+}
+
+function openBackupModal() {
+  let gens = [];
+  try { gens = JSON.parse(localStorage.getItem(BK_GENS) || '[]'); } catch (e) {}
+  const latest = (() => { try { return JSON.parse(localStorage.getItem(BK_LATEST) || 'null'); } catch (e) { return null; } })();
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal-content" style="max-width:520px">
+        <div class="modal-header"><h2>バックアップと復元</h2><button class="close-btn" id="bk-x">×</button></div>
+        <div class="modal-body">
+          <div class="field">
+            <label>ファイルに保存 (推奨)</label>
+            <div class="hint">写真・PDF添付も含めた完全バックアップです。定期的に保存してください。</div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn-primary" id="bk-dl" style="flex:1">JSONで保存</button>
+              <button class="btn-secondary" id="bk-up" style="flex:1">JSONから復元</button>
+            </div>
+            <input type="file" id="bk-file" accept=".json" style="display:none">
+          </div>
+          <div class="field" style="margin-top:18px">
+            <label>このブラウザの自動バックアップ</label>
+            <div class="hint">同期のたびに自動保存されます (最大5世代・添付は含みません)。</div>
+            <div id="bk-gens" style="margin-top:8px">
+              ${(!gens.length && !latest) ? '<div class="hint">まだ記録がありません</div>' : ''}
+              ${latest ? `<div class="bk-row"><div><strong>最新</strong> <span class="bk-meta">${formatDateTime(new Date(latest.ts).toISOString())} / ${latest.count}件</span></div>
+                <button class="btn-mini" data-bk="latest">復元</button></div>` : ''}
+              ${gens.slice().reverse().map((g, i) => `<div class="bk-row"><div>${g.date} <span class="bk-meta">${g.count}件</span></div>
+                <button class="btn-mini" data-bk="${gens.length - 1 - i}">復元</button></div>`).join('')}
+            </div>
+          </div>
+          <div class="modal-footer"><button class="btn-secondary" id="bk-close">閉じる</button></div>
+        </div>
+      </div>
+    </div>`;
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('bk-x').onclick = close;
+  document.getElementById('bk-close').onclick = close;
+  document.getElementById('bk-dl').onclick = () => { downloadBackup(); close(); };
+  document.getElementById('bk-up').onclick = () => document.getElementById('bk-file').click();
+  document.getElementById('bk-file').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const j = JSON.parse(await f.text());
+      const list = Array.isArray(j) ? j : j.properties;
+      close();
+      await restoreList(list, `ファイル: ${f.name}`);
+    } catch (err) { alert('ファイルを読み込めませんでした'); }
+  });
+  mount.querySelectorAll('[data-bk]').forEach(btn => {
+    btn.onclick = async () => {
+      const k = btn.dataset.bk;
+      const src = k === 'latest' ? latest : gens[Number(k)];
+      if (!src) return;
+      close();
+      await restoreList(src.data, k === 'latest' ? '最新の自動バックアップ' : `${src.date} の自動バックアップ`);
+    };
+  });
+}
+
+// 7日以上バックアップしていなければ警告
+function updateBackupWarning() {
+  const bar = document.getElementById('warn-backup');
+  if (!bar) return;
+  const last = Number(localStorage.getItem(BK_LAST) || 0);
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : 999;
+  if (properties.length > 0 && days >= 7) {
+    bar.style.display = 'flex';
+    bar.querySelector('.warn-text').textContent = last
+      ? `最後のバックアップから${days}日経過しています`
+      : 'まだ一度もバックアップを保存していません';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+
+const API_KEY = 'AIzaSyBSgpN6obytcYE7-UE8Eli_Kpo9lpKxpCo';
+const STORAGE_KEY = 'realestate_properties_v3';
+const PHOTO_STORAGE_KEY = 'realestate_photos_v1';
+
+let currentUserId = null;
+let unsubscribeFirestore = null;
+let firebaseReady = false;
+let pendingSync = new Map();
+
+function setSyncStatus(text, color) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = color || 'inherit';
+}
+
+const PROPERTY_TYPES = [
+  { name: '区分マンション', color: '#378ADD', bg: '#E6F1FB', text: '#0C447C' },
+  { name: '一棟マンション', color: '#185FA5', bg: '#B5D4F4', text: '#042C53' },
+  { name: '一棟アパート',   color: '#1D9E75', bg: '#E1F5EE', text: '#085041' },
+  { name: '戸建て',         color: '#D85A30', bg: '#FAECE7', text: '#712B13' },
+  { name: '土地',           color: '#BA7517', bg: '#FAEEDA', text: '#633806' },
+  { name: '借地',           color: '#8E6FB8', bg: '#EFEAF6', text: '#3F2D5C' },
+  { name: 'その他',         color: '#5F5E5A', bg: '#F1EFE8', text: '#2C2C2A' },
+];
+const LAYOUTS = ['1R','1K','1DK','1LDK','2K','2DK','2LDK','3DK','3LDK','4LDK以上','その他'];
+const STATUSES = [
+  { key: 'consulting', name: '相談中', short: '相談' },
+  { key: 'listed', name: '物件化', short: '物件化' },
+  { key: 'closed', name: '成約', short: '成約' },
+];
+const DEFAULT_STATUS = 'consulting';
+
+let properties = [];
+let selectedId = null;
+let filterText = '';
+let filterType = '';
+let filterStatus = '';
+let map = null;
+let geocoder = null;
+let placesService = null;
+let searchMarker = null;
+let markers = {};
+let listVisible = true;
+let mapsLoaded = false;
+
+const typeMeta = (name) => PROPERTY_TYPES.find(t => t.name === name) || PROPERTY_TYPES.find(t => t.name === 'その他');
+const statusOf = (p) => p.status || DEFAULT_STATUS;
+const statusMeta = (key) => STATUSES.find(s => s.key === key) || STATUSES[0];
+
+const formatYen = (n) => {
+  if (n == null || n === '' || isNaN(n)) return '—';
+  const v = Number(n);
+  if (v >= 10000) return (v / 10000).toFixed(2) + '億円';
+  return v.toLocaleString() + '万円';
+};
+
+const formatDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+};
+
+const formatDateTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${formatDate(iso)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+};
+
+const computeYield = (p) => {
+  if (p.yield != null && p.yield !== '' && !isNaN(p.yield)) return Number(p.yield);
+  if (p.monthlyRent && p.price && Number(p.price) > 0) {
+    return (Number(p.monthlyRent) * 12) / (Number(p.price) * 10000) * 100;
+  }
+  return null;
+};
+
+const escapeHtml = (s) => {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+};
+
+
+// 土地価格(万円)と企画から収支を算出
+
+
+// 容積率から想定延床(1区画あたり)を算出
+
+
+// 企画パターンごとの計算結果リストを返す
+
+
+const svUrl = (lat, lng, addr) => lat && lng
+  ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`
+  : `https://www.google.com/maps?q=${encodeURIComponent(addr || '')}&layer=c`;
+const gmUrl = (lat, lng, addr) => lat && lng
+  ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr || '')}`;
+
+// 写真だけはブラウザに残す(Firestoreの容量を圧迫しないため)
+function loadPhotos() {
+  try {
+    const raw = localStorage.getItem(PHOTO_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e) { return {}; }
+}
+function savePhotos(photoMap) {
+  try {
+    localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(photoMap));
+  } catch(e) {
+    console.error('写真の保存に失敗:', e);
+    alert('写真の保存に失敗しました。古い物件の写真を整理してみてください。');
+  }
+}
+
+// Firestoreに保存するデータから写真を分離する
+function stripAttachments(p) {
+  const { attachments, ...rest } = p;
+  return rest;
+}
+
+// 物件1件をFirestoreに保存
+async function savePropertyToFirestore(p) {
+  if (!currentUserId || !window.fbDb) {
+    console.warn('Firebase未接続のため保存をスキップ');
+    return false;
+  }
+  try {
+    const { collection, doc, setDoc } = window.fbHelpers;
+    const docRef = doc(window.fbDb, 'users', currentUserId, 'properties', p.id);
+    await setDoc(docRef, stripAttachments(p));
+
+    // 写真は別途ローカルに保存
+    const photos = loadPhotos();
+    if (p.attachments && p.attachments.length > 0) {
+      photos[p.id] = p.attachments;
+    } else {
+      delete photos[p.id];
+    }
+    savePhotos(photos);
+    return true;
+  } catch(e) {
+    console.error('Firestore保存エラー:', e);
+    setSyncStatus('保存エラー', '#b91c1c');
+    return false;
+  }
+}
+
+// 1件削除
+async function deletePropertyFromFirestore(id) {
+  if (!currentUserId || !window.fbDb) return false;
+  try {
+    const { doc, deleteDoc } = window.fbHelpers;
+    const docRef = doc(window.fbDb, 'users', currentUserId, 'properties', id);
+    await deleteDoc(docRef);
+    const photos = loadPhotos();
+    delete photos[id];
+    savePhotos(photos);
+    return true;
+  } catch(e) {
+    console.error('Firestore削除エラー:', e);
+    return false;
+  }
+}
+
+// Firestoreの変更を購読
+function subscribeFirestore() {
+  if (!currentUserId || !window.fbDb) return;
+  if (unsubscribeFirestore) unsubscribeFirestore();
+  const { collection, onSnapshot } = window.fbHelpers;
+  const colRef = collection(window.fbDb, 'users', currentUserId, 'properties');
+  unsubscribeFirestore = onSnapshot(colRef, (snapshot) => {
+    const photos = loadPhotos();
+    properties = snapshot.docs.map(d => {
+      const data = d.data();
+      return { ...data, id: d.id, attachments: photos[d.id] || [] };
+    });
+    setSyncStatus('● 同期済み', '#1D9E75');
+    autoBackup(properties);
+    render();
+    syncMarkers();
+  }, (err) => {
+    console.error('Firestore購読エラー:', err);
+    setSyncStatus('同期エラー', '#b91c1c');
+  });
+}
+
+// localStorageから既存データを移行(初回のみ)
+async function migrateFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const oldData = JSON.parse(raw);
+    if (!Array.isArray(oldData) || oldData.length === 0) return;
+
+    const migrationFlag = localStorage.getItem('realestate_migrated_v1');
+    if (migrationFlag) return;
+
+    setSyncStatus('既存データを移行中...', '#c9a961');
+    for (const p of oldData) {
+      if (!p.id) p.id = String(Date.now() + Math.random());
+      await savePropertyToFirestore(p);
+    }
+    localStorage.setItem('realestate_migrated_v1', '1');
+    setSyncStatus('移行完了', '#1D9E75');
+  } catch(e) {
+    console.error('移行エラー:', e);
+  }
+}
+
+// Firebase認証 → 購読開始
+function initFirebase() {
+  if (!window.fbAuth) {
+    setSyncStatus('Firebase初期化失敗', '#b91c1c');
+    return;
+  }
+  const { onAuthStateChanged } = window.fbHelpers;
+
+  // ログイン/ログアウトボタンの設定
+  setupAuthButtons();
+
+  setSyncStatus('認証確認中...', '#c9a961');
+
+  onAuthStateChanged(window.fbAuth, async (user) => {
+    if (user) {
+      currentUserId = user.uid;
+      firebaseReady = true;
+
+      // ログイン状態の表示更新
+      updateUserDisplay(user);
+
+      setSyncStatus('● 同期済み', '#1D9E75');
+      await migrateFromLocalStorage();
+      subscribeFirestore();
+    } else {
+      // 未ログイン状態 → ログインボタンを表示
+      currentUserId = null;
+      properties = [];
+      if (unsubscribeFirestore) { unsubscribeFirestore(); unsubscribeFirestore = null; }
+      updateUserDisplay(null);
+      setSyncStatus('ログインしてください', '#c9a961');
+      render();
+      syncMarkers();
+    }
+  });
+}
+
+function updateUserDisplay(user) {
+  const userInfo = document.getElementById('user-info');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  if (user) {
+    const isAnon = !user.email && !user.displayName;
+    const warn = document.getElementById('warn-anon');
+    if (warn) warn.style.display = isAnon ? 'flex' : 'none';
+    const name = user.displayName || user.email || '匿名ユーザー';
+    userInfo.textContent = name;
+    userInfo.style.display = 'inline';
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-flex';
+  } else {
+    const warn = document.getElementById('warn-anon');
+    if (warn) warn.style.display = 'none';
+    userInfo.style.display = 'none';
+    loginBtn.style.display = 'inline-flex';
+    logoutBtn.style.display = 'none';
+  }
+}
+
+function setupAuthButtons() {
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  if (!loginBtn || !logoutBtn) return;
+
+  // 重複登録を防ぐ
+  if (loginBtn.dataset.bound) return;
+  loginBtn.dataset.bound = '1';
+
+  loginBtn.onclick = async () => {
+    const { signInWithPopup, GoogleAuthProvider } = window.fbHelpers;
+    const provider = new GoogleAuthProvider();
+    try {
+      setSyncStatus('ログイン中...', '#c9a961');
+      await signInWithPopup(window.fbAuth, provider);
+      // onAuthStateChangedが呼ばれて自動的に処理される
+    } catch (e) {
+      console.error('ログインエラー:', e);
+      setSyncStatus('ログイン失敗', '#b91c1c');
+      if (e.code === 'auth/popup-blocked') {
+        alert('ポップアップがブロックされました。ブラウザのポップアップ許可設定を確認してください。');
+      } else if (e.code !== 'auth/popup-closed-by-user') {
+        alert('ログインに失敗しました: ' + e.message);
+      } else {
+        setSyncStatus('ログインしてください', '#c9a961');
+      }
+    }
+  };
+
+  logoutBtn.onclick = async () => {
+    if (!confirm('ログアウトしますか? データはサーバー上に残ります。')) return;
+    const { signOut } = window.fbHelpers;
+    try {
+      await signOut(window.fbAuth);
+    } catch (e) {
+      console.error('ログアウトエラー:', e);
+    }
+  };
+}
+
+// 既存コードとの互換性のため、ダミー関数を残す
+function loadProperties() {
+  // Firestore購読が代わりに行うので何もしない
+}
+function saveProperties() {
+  // 個別の savePropertyToFirestore で保存するので何もしない
+}
+
+function showApiKeyError(msg) {
+  document.getElementById('body-container').innerHTML = `
+    <div class="api-key-screen">
+      <div class="api-key-card">
+        <h2>⚠ APIキーのエラー</h2>
+        <p>${escapeHtml(msg)}</p>
+        <p>以下を確認してください:</p>
+        <ul style="font-size: 13px; color: #3a342a; line-height: 1.8; padding-left: 20px;">
+          <li>Google Cloud Consoleで<code>Maps JavaScript API</code>、<code>Geocoding API</code>、<code>Places API</code>が有効になっている</li>
+          <li>請求先アカウント(クレジットカード)が登録されている</li>
+          <li>APIキーに「アプリケーションの制限」がかかっていない、または許可ドメインに入っている</li>
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
+window.gm_authFailure = function() {
+  showApiKeyError('APIキーが無効か、必要なAPIが有効化されていません。');
+};
+
+function initMap() {
+  mapsLoaded = true;
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 35.6762, lng: 139.6503 },
+    zoom: 11,
+    mapTypeControl: true,
+    streetViewControl: true,
+    fullscreenControl: true,
+    zoomControl: true,
+  });
+  geocoder = new google.maps.Geocoder();
+  placesService = new google.maps.places.PlacesService(map);
+  setupMapSearch();
+  map.addListener('idle', () => { if (filterInBounds) { renderList(); } });
+  render();
+  syncMarkers();
+
+  // Firebaseが既に準備できていれば初期化、まだなら待つ
+  if (window.fbAuth) {
+    initFirebase();
+  } else {
+    window.addEventListener('firebase-ready', initFirebase, { once: true });
+  }
+}
+
+function setupMapSearch() {
+  const input = document.getElementById('map-search-input');
+  const clearBtn = document.getElementById('map-search-clear');
+
+  // Places Autocomplete を設定
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    fields: ['geometry', 'name', 'formatted_address'],
+    componentRestrictions: { country: 'jp' },
+  });
+
+  autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace();
+    if (!place.geometry || !place.geometry.location) return;
+    moveToSearchResult(place.geometry.location, place.name || place.formatted_address);
+  });
+
+  // Enterキーで地名・住所検索(Autocompleteの候補を選んでない場合のフォールバック)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      setTimeout(() => {
+        const query = input.value.trim();
+        if (!query) return;
+        // すでにAutocompleteで処理されているか確認するため、少し遅延
+        if (!searchMarker || searchMarker.title !== query) {
+          geocoder.geocode({ address: query, region: 'JP' }, (results, status) => {
+            if (status === 'OK' && results[0]) {
+              moveToSearchResult(results[0].geometry.location, results[0].formatted_address);
+            }
+          });
+        }
+      }, 200);
+    }
+  });
+
+  input.addEventListener('input', () => {
+    clearBtn.style.display = input.value ? 'inline-block' : 'none';
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.style.display = 'none';
+    if (searchMarker) { searchMarker.setMap(null); searchMarker = null; }
+    radiusCenter = null;
+    const rs = document.getElementById('radius-select'); if (rs) rs.value = '0';
+    radiusM = 0;
+    updateRadiusUI(); updateRadiusCircle(); render(); syncMarkers();
+  });
+}
+
+function moveToSearchResult(location, label) {
+  const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
+  const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
+
+  map.panTo({ lat, lng });
+  map.setZoom(16);
+
+  if (searchMarker) searchMarker.setMap(null);
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+      <circle cx="16" cy="16" r="15" fill="none" stroke="#c9a961" stroke-width="2" stroke-dasharray="3,2" opacity="0.6"/>
+      <path d="M16 4 C9 4 4 9 4 16 C4 24 16 36 16 36 C16 36 28 24 28 16 C28 9 23 4 16 4 Z"
+        fill="#c9a961" stroke="#1c201c" stroke-width="1.5"/>
+      <circle cx="16" cy="15" r="3.5" fill="#1c201c"/>
+    </svg>
+  `;
+
+  searchMarker = new google.maps.Marker({
+    position: { lat, lng },
+    map,
+    title: label,
+    icon: {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(32, 40),
+      anchor: new google.maps.Point(16, 40),
+    },
+    animation: google.maps.Animation.DROP,
+    zIndex: 9999,
+  });
+
+  document.getElementById('map-search-clear').style.display = 'inline-block';
+  radiusCenter = { lat, lng, label };
+  updateRadiusUI();
+  updateRadiusCircle();
+  render();
+  syncMarkers();
+}
+
+function geocode(address) {
+  return new Promise((resolve) => {
+    if (!address || !geocoder) { resolve(null); return; }
+    geocoder.geocode({ address, region: 'JP' }, (results, status) => {
+      if (status === 'OK' && results && results[0]) {
+        const loc = results[0].geometry.location;
+        resolve({ lat: loc.lat(), lng: loc.lng() });
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+function syncMarkers() {
+  if (!map) return;
+  Object.values(markers).forEach(m => m.setMap(null));
+  markers = {};
+
+  const visible = filtered();
+  const withCoords = visible.filter(p => p.lat != null && p.lng != null);
+
+  withCoords.forEach(p => {
+    const meta = typeMeta(p.type);
+    const status = statusOf(p);
+    const isSel = selectedId === p.id;
+    const size = isSel ? 36 : 28;
+
+    let svg;
+    if (status === 'consulting') {
+      // 透けたピン: 半透明塗り + 破線
+      svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 4}" viewBox="0 0 36 40">
+          <path d="M18 1 C8.5 1 1 8.5 1 18 C1 27.5 18 39 18 39 C18 39 35 27.5 35 18 C35 8.5 27.5 1 18 1 Z"
+            fill="${meta.color}" fill-opacity="0.35" stroke="${meta.color}" stroke-width="1.8" stroke-dasharray="3,2"/>
+          ${isSel ? `<circle cx="18" cy="18" r="3.5" fill="${meta.color}"/>` : ''}
+        </svg>
+      `;
+    } else if (status === 'listed') {
+      // 濃いピン: 通常の塗りつぶし
+      svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 4}" viewBox="0 0 36 40">
+          <path d="M18 0 C8 0 0 8 0 18 C0 28 18 40 18 40 C18 40 36 28 36 18 C36 8 28 0 18 0 Z"
+            fill="${meta.color}" stroke="#fff" stroke-width="2"/>
+          ${isSel ? `<circle cx="18" cy="18" r="4" fill="#fff"/>` : ''}
+        </svg>
+      `;
+    } else {
+      // 成約: 二重リング付き濃いピン + チェック
+      svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${size + 8}" height="${size + 12}" viewBox="0 0 44 48">
+          <circle cx="22" cy="22" r="21" fill="none" stroke="${meta.color}" stroke-width="1.5" stroke-opacity="0.4"/>
+          <path d="M22 4 C12 4 4 12 4 22 C4 32 22 44 22 44 C22 44 40 32 40 22 C40 12 32 4 22 4 Z"
+            fill="${meta.color}" stroke="#fff" stroke-width="2"/>
+          <path d="M16 21 L20 25 L28 17" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+    }
+
+    const finalW = status === 'closed' ? size + 8 : size;
+    const finalH = status === 'closed' ? size + 12 : size + 4;
+
+    const marker = new google.maps.Marker({
+      position: { lat: p.lat, lng: p.lng },
+      map,
+      title: `${p.name}${status !== 'consulting' ? ' [' + statusMeta(status).short + ']' : ''}`,
+      icon: {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(finalW, finalH),
+        anchor: new google.maps.Point(finalW / 2, finalH),
+      },
+      zIndex: isSel ? 1000 : (status === 'closed' ? 200 : status === 'listed' ? 150 : 100),
+    });
+
+    marker.addListener('click', () => selectProperty(p.id));
+    markers[p.id] = marker;
+  });
+
+  if (withCoords.length > 1 && !selectedId) {
+    const bounds = new google.maps.LatLngBounds();
+    withCoords.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+    map.fitBounds(bounds, 60);
+  } else if (withCoords.length === 1 && !selectedId) {
+    map.setCenter({ lat: withCoords[0].lat, lng: withCoords[0].lng });
+    map.setZoom(15);
+  }
+
+  document.getElementById('empty-hint').style.display = properties.length === 0 ? 'block' : 'none';
+}
+
+function panToSelected() {
+  if (!selectedId || !map) return;
+  const p = properties.find(x => x.id === selectedId);
+  if (p && p.lat && p.lng) {
+    map.panTo({ lat: p.lat, lng: p.lng });
+    if (map.getZoom() < 15) map.setZoom(16);
+  }
+}
+
+
+
+function renderLegend() {
+  const counts = {};
+  properties.forEach(p => {
+    const k = p.type || 'その他';
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  document.getElementById('legend').innerHTML = PROPERTY_TYPES.map(t => {
+    const n = counts[t.name] || 0;
+    const opacity = n === 0 ? '0.4' : '1';
+    return `<div class="legend-item" style="opacity: ${opacity}">
+      <span class="legend-dot" style="background: ${t.color}"></span>
+      ${t.name}${n > 0 ? ` <span style="color: #9a9080">(${n})</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderTypeFilter() {
+  const sel = document.getElementById('type-filter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">すべての種別</option>' +
+    PROPERTY_TYPES.map(t => `<option value="${t.name}" ${cur === t.name ? 'selected' : ''}>${t.name}</option>`).join('');
+}
+
+
+
+// 詳細カードに企画パターンを表示
+
+
+
+
+function openLightbox(src) {
+  const lb = document.createElement('div');
+  lb.className = 'lightbox';
+  lb.innerHTML = `<button class="close-lb">×</button><img src="${src}" />`;
+  lb.onclick = () => lb.remove();
+  document.body.appendChild(lb);
+}
+
+
+
+function selectProperty(id) {
+  selectedId = id;
+  render();
+  syncMarkers();
+  panToSelected();
+}
+
+async function deleteProperty(id) {
+  if (!confirm('この物件を削除しますか?')) return;
+  const ok = await deletePropertyFromFirestore(id);
+  if (!ok) {
+    alert('削除に失敗しました。インターネット接続を確認してください。');
+    return;
+  }
+  if (selectedId === id) selectedId = null;
+}
+
+
+
+
+
+// CSVを安全にパース(ダブルクォート対応)
+function parseCSV(text) {
+  // BOM除去
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  let cur = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') {
+        inQuotes = true;
+      } else if (c === ',') {
+        cur.push(field); field = '';
+      } else if (c === '\n') {
+        cur.push(field); rows.push(cur); cur = []; field = '';
+      } else if (c === '\r') {
+        // skip
+      } else {
+        field += c;
+      }
+    }
+  }
+  if (field !== '' || cur.length > 0) { cur.push(field); rows.push(cur); }
+  return rows.filter(r => r.some(v => v && v !== ''));
+}
+
+const STATUS_NAME_TO_KEY = { '相談中': 'consulting', '物件化': 'listed', '成約': 'closed' };
+
+function parseDate(s) {
+  if (!s) return null;
+  const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (m) {
+    const d = new Date(+m[1], +m[2]-1, +m[3]);
+    return d.toISOString();
+  }
+  return null;
+}
+
+
+
+document.getElementById('add-btn').onclick = () => openForm(null);
+document.getElementById('export-btn').onclick = exportCSV;
+document.getElementById('import-btn').onclick = () => {
+  if (!currentUserId) { alert('先にGoogleログインしてください'); return; }
+  document.getElementById('import-file').click();
+};
+document.getElementById('import-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  await importCSV(file);
+  e.target.value = ''; // 同じファイルを再選択できるようにリセット
+});
+
+
+
+document.getElementById('toggle-list-btn').onclick = () => {
+  listVisible = !listVisible;
+  document.getElementById('sidebar').classList.toggle('hidden', !listVisible);
+  document.getElementById('toggle-list-btn').textContent = listVisible ? 'リストを隠す' : 'リストを表示';
+  setTimeout(() => map && google.maps.event.trigger(map, 'resize'), 100);
+};
+
+const script = document.createElement('script');
+script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=initMap&libraries=places&language=ja&region=JP&loading=async`;
+script.async = true;
+script.defer = true;
+script.onerror = () => showApiKeyError('Google Mapsスクリプトの読み込みに失敗しました。インターネット接続を確認してください。');
+document.head.appendChild(script);
+
+setTimeout(() => {
+  if (!mapsLoaded) {
+    showApiKeyError('Google Mapsの読み込みがタイムアウトしました。APIキーや有効化状況を確認してください。');
+  }
+}, 15000);
+
+function openForm(existing) {
+  const isEdit = !!existing;
+  const p = existing || {
+    name:'', address:'', type:'', layout:'', landArea:'', bldgArea:'', age:'',
+    price:'', bcr:'', far:'', monthlyRent:'', yield:'', memo:'', agent:'',
+    leaseValue:'', bldgValue:'', groundRent:'', leaseType:'', leaseYears:'',
+    stations:[], plans:[], attachments:[], status: DEFAULT_STATUS,
+  };
+  // 旧データ(area 1本)からの移行
+  let landArea = p.landArea, bldgArea = p.bldgArea;
+  if (!landArea && !bldgArea && p.area) {
+    if (specOf(p.type).land) landArea = p.area; else bldgArea = p.area;
+  }
+
+  let workingAttachments = [...(p.attachments || [])];
+  let workingStatus = p.status || DEFAULT_STATUS;
+  let workingPlans = JSON.parse(JSON.stringify(p.plans || []));
+  let workingStations = JSON.parse(JSON.stringify(p.stations || []));
+  if (!workingStations.length) workingStations.push({ line:'', name:'', min:'' });
+
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>${isEdit ? '物件を編集' : '新規物件を追加'}</h2>
+          <button class="close-btn" id="form-close-x">×</button>
+        </div>
+        <div class="modal-body">
+          ${isEdit && p.createdAt ? `<div style="font-size:11px; color:#7a7060; font-family:'JetBrains Mono',monospace; margin-bottom:12px;">入力日: ${formatDate(p.createdAt)}${p.updatedAt && p.updatedAt !== p.createdAt ? ' / 最終更新: ' + formatDate(p.updatedAt) : ''}</div>` : ''}
+          <div class="field">
+            <label>ステータス</label>
+            <div class="status-options" id="status-options">
+              ${STATUSES.map(s => `<div class="status-option ${s.key} ${workingStatus === s.key ? 'active' : ''}" data-status="${s.key}">${s.name}</div>`).join('')}
+            </div>
+          </div>
+          <div class="field">
+            <label>物件名 <span class="required">*</span></label>
+            <input type="text" id="f-name" value="${escapeHtml(p.name)}" placeholder="例: 上目黒235">
+          </div>
+          <div class="field">
+            <label>住所 <span class="required">*</span></label>
+            <input type="text" id="f-address" value="${escapeHtml(p.address)}" placeholder="例: 目黒区上目黒2-35-1">
+            <div class="hint">番地まで入れると地図上に正確にピンが立ちます</div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>物件種別</label>
+              <select id="f-type">
+                <option value="">選択...</option>
+                ${PROPERTY_TYPES.map(t => `<option value="${t.name}" ${p.type === t.name ? 'selected' : ''}>${t.name}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field">
+              <label>担当者</label>
+              <input type="text" id="f-agent" value="${escapeHtml(p.agent || '')}" placeholder="例: 大倉" list="agent-suggestions">
+              <datalist id="agent-suggestions"></datalist>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="plan-head">
+              <label style="margin:0">最寄駅</label>
+              <button type="button" class="btn-mini" id="st-add">＋ 路線を追加</button>
+            </div>
+            <div id="stations-wrap"></div>
+          </div>
+
+          <div class="field-row" data-fld="layout-age">
+            <div class="field" data-fld="layout">
+              <label>間取り</label>
+              <select id="f-layout">
+                <option value="">選択...</option>
+                ${LAYOUTS.map(l => `<option value="${l}" ${p.layout === l ? 'selected' : ''}>${l}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field" data-fld="age">
+              <label>築年数 (年)</label>
+              <input type="text" inputmode="numeric" class="jsnum" id="f-age" value="${escapeHtml(p.age)}" placeholder="15">
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field" data-fld="land">
+              <label>土地面積</label>
+              <div class="unit-pair">
+                <input type="text" inputmode="decimal" class="jsnum" id="f-land" value="${escapeHtml(landArea)}" placeholder="68.5"><span class="unit-suffix">㎡</span>
+                <input type="text" inputmode="decimal" class="jsnum" id="f-land-tsubo" value="${escapeHtml(landArea ? (num(landArea) / TSUBO).toFixed(2) : '')}" placeholder="20.72"><span class="unit-suffix">坪</span>
+              </div>
+            </div>
+            <div class="field" data-fld="bldg">
+              <label id="f-bldg-label">建物面積 (㎡)</label>
+              <input type="text" inputmode="decimal" class="jsnum" id="f-bldg" value="${escapeHtml(bldgArea)}" placeholder="97.2">
+            </div>
+          </div>
+
+          <div class="field-row" data-fld="bcr">
+            <div class="field">
+              <label>建蔽率 (%)</label>
+              <input type="text" inputmode="decimal" class="jsnum" id="f-bcr" value="${escapeHtml(p.bcr || '')}" placeholder="60">
+            </div>
+            <div class="field">
+              <label>容積率 (%)</label>
+              <input type="text" inputmode="decimal" class="jsnum" id="f-far" value="${escapeHtml(p.far || '')}" placeholder="200">
+            </div>
+          </div>
+
+          <div class="field" data-fld="price">
+            <label>価格 (万円)</label>
+            <input type="text" inputmode="numeric" class="jsnum" id="f-price" value="${escapeHtml(p.price)}" placeholder="15000">
+          </div>
+
+          <div data-fld="lease">
+            <div class="lease-box">
+              <div class="lease-title">借地の内訳</div>
+              <div class="field-row">
+                <div class="field"><label>借地権価格 (万円)</label>
+                  <input type="text" inputmode="numeric" class="jsnum" id="f-lease-value" value="${escapeHtml(p.leaseValue || '')}" placeholder="6000"></div>
+                <div class="field"><label>建物価格 (万円)</label>
+                  <input type="text" inputmode="numeric" class="jsnum" id="f-bldg-value" value="${escapeHtml(p.bldgValue || '')}" placeholder="3600"></div>
+              </div>
+              <div class="lease-total" id="lease-total">合計 —</div>
+              <div class="field-row" style="margin-top:8px">
+                <div class="field"><label>月額地代 (円)</label>
+                  <input type="text" inputmode="numeric" class="jsnum" id="f-ground-rent" value="${escapeHtml(p.groundRent || '')}" placeholder="41000"></div>
+                <div class="field"><label>残存期間 (年)</label>
+                  <input type="text" inputmode="numeric" class="jsnum" id="f-lease-years" value="${escapeHtml(p.leaseYears || '')}" placeholder="30"></div>
+              </div>
+              <div class="field" style="margin-bottom:0"><label>借地権の種類</label>
+                <select id="f-lease-type">
+                  <option value="">選択...</option>
+                  ${LEASE_TYPES.map(t => `<option value="${t}" ${p.leaseType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="field" data-fld="income">
+            <button type="button" class="collapse-btn" id="income-toggle">＋ 収益情報を入力 (家賃・利回り)</button>
+            <div id="income-body" style="display:none; margin-top:8px;">
+              <div class="field-row">
+                <div class="field"><label>月額家賃 (円)</label>
+                  <input type="text" inputmode="numeric" class="jsnum" id="f-rent" value="${escapeHtml(p.monthlyRent)}" placeholder="95000"></div>
+                <div class="field"><label>利回り (%)</label>
+                  <input type="text" inputmode="decimal" class="jsnum" id="f-yield" value="${escapeHtml(p.yield)}" placeholder="自動計算"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="field" data-fld="plans">
+            <div class="plan-head">
+              <label style="margin:0">企画検討 (新築・分割)</label>
+              <button type="button" class="btn-mini" id="plan-add">＋ パターン追加</button>
+            </div>
+            <div id="plans-wrap"></div>
+          </div>
+
+          <div class="field">
+            <label>メモ</label>
+            <textarea id="f-memo" rows="3" placeholder="所感、条件、懸案など...">${escapeHtml(p.memo)}</textarea>
+          </div>
+          <div class="field">
+            <label>写真・PDF添付</label>
+            <label class="file-drop-zone" id="drop-zone">
+              <div class="icon">📎</div>
+              <div class="text">クリックして選択 / ドラッグ&ドロップ</div>
+              <div class="hint">画像 (JPG/PNG等) または PDF / 1ファイル最大5MB目安</div>
+              <input type="file" id="f-files" multiple accept="image/*,application/pdf">
+            </label>
+            <div class="attachments-grid" id="attachments-preview"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" id="form-cancel">キャンセル</button>
+            <button class="btn-primary" id="form-save">${isEdit ? '更新する' : '追加する'}</button>
+          </div>
+          <div class="status-line" id="form-status"></div>
+        </div>
+      </div>
+    </div>`;
+
+  /* --- ステータス --- */
+  document.querySelectorAll('#status-options .status-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      workingStatus = opt.dataset.status;
+      document.querySelectorAll('#status-options .status-option')
+        .forEach(o => o.classList.toggle('active', o.dataset.status === workingStatus));
+    });
+  });
+
+  /* --- 担当者候補 --- */
+  const agentSet = new Set();
+  properties.forEach(x => { if (x.agent) agentSet.add(x.agent); });
+  document.getElementById('agent-suggestions').innerHTML =
+    [...agentSet].map(a => `<option value="${escapeHtml(a)}">`).join('');
+
+  /* --- 種別による項目の出し分け --- */
+  const typeSel = document.getElementById('f-type');
+  function applyTypeSpec() {
+    const s = specOf(typeSel.value);
+    const show = (key, on) => document.querySelectorAll(`[data-fld="${key}"]`)
+      .forEach(el => { el.style.display = on ? '' : 'none'; });
+    show('layout', !!s.layout);
+    show('age', !!s.age);
+    show('layout-age', !!(s.layout || s.age));
+    show('land', !!s.land);
+    show('bldg', !!s.bldg);
+    show('bcr', !!s.bcr);
+    show('price', !!s.price);
+    show('lease', !!s.lease);
+    show('income', !!s.income);
+    show('plans', !!s.plans);
+    const bl = document.getElementById('f-bldg-label');
+    if (bl) bl.textContent = typeSel.value === '区分マンション' ? '専有面積 (㎡)' : '建物面積 (㎡)';
+    updateLeaseTotal();
+    updateAllPlans();
+  }
+  typeSel.addEventListener('change', applyTypeSpec);
+
+  /* --- 土地面積: ㎡ ⇔ 坪 の相互自動計算 --- */
+  const landEl = document.getElementById('f-land');
+  const landTsuboEl = document.getElementById('f-land-tsubo');
+  if (landEl && landTsuboEl) {
+    landEl.addEventListener('input', () => {
+      const v = num(landEl.value);
+      landTsuboEl.value = v > 0 ? +(v / TSUBO).toFixed(2) : '';
+    });
+    landTsuboEl.addEventListener('input', () => {
+      const v = num(landTsuboEl.value);
+      landEl.value = v > 0 ? +(v * TSUBO).toFixed(2) : '';
+      updateAllPlans();
+    });
+  }
+
+  /* --- 借地の合計 --- */
+  function updateLeaseTotal() {
+    const el = document.getElementById('lease-total');
+    if (!el) return;
+    const t = num(document.getElementById('f-lease-value').value) + num(document.getElementById('f-bldg-value').value);
+    el.textContent = t > 0 ? `合計 ${man(t)} 万円 (借地権 + 建物)` : '合計 —';
+    updateAllPlans();
+  }
+  ['f-lease-value','f-bldg-value'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateLeaseTotal));
+
+  /* --- 収益情報の折りたたみ --- */
+  const incBtn = document.getElementById('income-toggle');
+  const incBody = document.getElementById('income-body');
+  if (p.monthlyRent || p.yield) { incBody.style.display = 'block'; incBtn.textContent = '− 収益情報'; }
+  incBtn.addEventListener('click', () => {
+    const on = incBody.style.display === 'none';
+    incBody.style.display = on ? 'block' : 'none';
+    incBtn.textContent = on ? '− 収益情報' : '＋ 収益情報を入力 (家賃・利回り)';
+  });
+
+  /* --- 最寄駅 --- */
+  function renderStations() {
+    const wrap = document.getElementById('stations-wrap');
+    wrap.innerHTML = workingStations.map((s, i) => `
+      <div class="st-row" data-si="${i}">
+        <input type="text" class="st-line" data-si="${i}" value="${escapeHtml(s.line || '')}" placeholder="路線 (例: 東急東横線)">
+        <input type="text" class="st-name" data-si="${i}" value="${escapeHtml(s.name || '')}" placeholder="駅名">
+        <input type="text" inputmode="numeric" class="st-min jsnum" data-si="${i}" value="${escapeHtml(s.min || '')}" placeholder="分">
+        <button type="button" class="plan-del st-del" data-si="${i}" title="削除">×</button>
+      </div>`).join('');
+    wrap.querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
+      const i = +el.dataset.si;
+      const key = el.classList.contains('st-line') ? 'line' : el.classList.contains('st-name') ? 'name' : 'min';
+      workingStations[i][key] = el.value;
+    }));
+    wrap.querySelectorAll('.st-del').forEach(el => el.addEventListener('click', () => {
+      workingStations.splice(+el.dataset.si, 1);
+      if (!workingStations.length) workingStations.push({ line:'', name:'', min:'' });
+      renderStations();
+    }));
+  }
+  document.getElementById('st-add').addEventListener('click', () => {
+    if (workingStations.length >= 4) { alert('路線は4つまでです'); return; }
+    workingStations.push({ line:'', name:'', min:'' });
+    renderStations();
+  });
+
+  /* --- 企画検討 --- */
+  const propForCalc = () => ({
+    type: typeSel.value,
+    landArea: document.getElementById('f-land')?.value,
+    bldgArea: document.getElementById('f-bldg')?.value,
+    area: '',
+    price: document.getElementById('f-price')?.value,
+    leaseValue: document.getElementById('f-lease-value')?.value,
+    bldgValue: document.getElementById('f-bldg-value')?.value,
+  });
+
+  function lotsHtml(pl, i) {
+    const units = Math.min(MAX_UNITS, Math.max(1, parseInt(pl.units) || 1));
+    const noBuild = pl.sellType === '更地分譲' || pl.sellType === '現況渡し';
+    let out = `<div class="lot-head"><span></span><span>土地 ㎡</span><span>延床 ㎡</span><span>売価 万円</span></div>`;
+    for (let u = 0; u < units; u++) {
+      const l = (pl.lots || [])[u] || {};
+      out += `<div class="lot-row">
+        <span class="lot-no">${CIRCLED[u]}</span>
+        <input type="text" inputmode="decimal" class="lot-land jsnum"  data-pi="${i}" data-ui="${u}" value="${escapeHtml(l.land ?? '')}">
+        <input type="text" inputmode="decimal" class="lot-floor jsnum" data-pi="${i}" data-ui="${u}" value="${escapeHtml(l.floor ?? '')}" ${noBuild ? 'disabled' : ''}>
+        <input type="text" inputmode="numeric" class="lot-price jsnum" data-pi="${i}" data-ui="${u}" value="${escapeHtml(l.price ?? '')}">
+      </div>`;
+    }
+    return out;
+  }
+
+  function planResultHtml(pl) {
+    const c = planCalc(propForCalc(), pl);
+    const roadTxt = c.totalLand > 0
+      ? (c.roadArea >= 0
+          ? `区画計 ${c.landSum.toFixed(1)}㎡ / 道路・潰れ地 ${c.roadArea.toFixed(1)}㎡`
+          : `<span class="neg">区画計が土地面積を ${Math.abs(c.roadArea).toFixed(1)}㎡ 超過</span>`)
+      : '';
+    return `${roadTxt ? roadTxt + '<br>' : ''}
+      <span class="big">土地の売値 ${man(c.revenue)}万</span>${c.buildCost > 0 ? ` ／ 建築費 ${man(c.buildCost)}万` : ''}
+      ${c.floorSum > 0 ? `<br><span style="opacity:.7">総延床 ${c.floorSum.toFixed(1)}㎡ (${(c.floorSum/TSUBO).toFixed(1)}坪)</span>` : ''}`;
+  }
+
+  function planAutoHtml(pl) {
+    const pr = propForCalc();
+    const land = areaOf(pr), far = num(document.getElementById('f-far')?.value);
+    if (land <= 0 || far <= 0) return '';
+    const units = Math.max(1, parseInt(pl.units) || 1);
+    return `容積率いっぱいなら 全体${(land * far / 100).toFixed(1)}㎡ ／ 1区画あたり約 <strong>${(land * far / 100 / units).toFixed(1)}㎡</strong> <a data-plan-fill="1">← 各区画に入れる</a>`;
+  }
+
+  const updateResult = (i) => { const el = document.querySelector(`.plan-result[data-pi="${i}"]`); if (el) el.innerHTML = planResultHtml(workingPlans[i]); };
+  const updateAuto   = (i) => { const el = document.querySelector(`.plan-auto[data-pi="${i}"]`);   if (el) el.innerHTML = planAutoHtml(workingPlans[i]); };
+  function updateAllPlans() { workingPlans.forEach((_, i) => { updateResult(i); updateAuto(i); }); }
+
+  function bindLots(scope) {
+    scope.querySelectorAll('.lot-land, .lot-floor, .lot-price').forEach(el => el.addEventListener('input', () => {
+      const i = +el.dataset.pi, u = +el.dataset.ui;
+      if (!workingPlans[i].lots) workingPlans[i].lots = [];
+      while (workingPlans[i].lots.length <= u) workingPlans[i].lots.push({ land:'', floor:'', price:'' });
+      const key = el.classList.contains('lot-land') ? 'land' : el.classList.contains('lot-floor') ? 'floor' : 'price';
+      workingPlans[i].lots[u][key] = el.value;
+      updateResult(i);
+    }));
+  }
+
+  function renderPlans() {
+    const wrap = document.getElementById('plans-wrap');
+    if (!wrap) return;
+    if (!workingPlans.length) {
+      wrap.innerHTML = `<div class="hint" style="margin-top:8px">「＋ パターン追加」で 3分割案・4分割案・更地のまま売る案などを並べて比較できます。</div>`;
+      return;
+    }
+    wrap.innerHTML = workingPlans.map((pl, i) => `
+      <div class="plan-card ${pl.adopted ? 'adopted' : ''}" data-pi="${i}">
+        <div class="plan-card-head">
+          <input type="text" class="plan-name" data-pi="${i}" value="${escapeHtml(pl.name || '')}" placeholder="例: 3分割案">
+          <label class="plan-adopt"><input type="radio" name="plan-adopt" class="plan-adopt-radio" data-pi="${i}" ${pl.adopted ? 'checked' : ''}>採用</label>
+          <button type="button" class="plan-del" data-pi="${i}" title="削除">×</button>
+        </div>
+        <div class="plan-grid2">
+          <div><label class="mini">売り方</label>
+            <select class="plan-sell" data-pi="${i}">
+              ${SELL_TYPES.map(s => `<option value="${s}" ${pl.sellType === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select></div>
+          <div><label class="mini">区画数</label>
+            <input type="text" inputmode="numeric" class="plan-units jsnum" data-pi="${i}" value="${escapeHtml(pl.units || 1)}"></div>
+        </div>
+        <div class="plan-grid2 plan-build-row" ${(pl.sellType === '更地分譲' || pl.sellType === '現況渡し') ? 'style="display:none"' : ''}>
+          <div><label class="mini">建物グレード</label>
+            <select class="plan-grade" data-pi="${i}">
+              ${GRADES.map(g => `<option value="${g.name}" ${pl.grade === g.name ? 'selected' : ''}>${g.name} (${g.tsubo}万/坪)</option>`).join('')}
+              <option value="カスタム" ${pl.grade === 'カスタム' ? 'selected' : ''}>カスタム</option>
+            </select></div>
+          <div><label class="mini">建築費 (万円/坪)</label>
+            <input type="text" inputmode="numeric" class="plan-tsubo jsnum" data-pi="${i}" value="${escapeHtml(pl.tsuboUnit ?? '')}"></div>
+        </div>
+        <div class="plan-auto" data-pi="${i}">${planAutoHtml(pl)}</div>
+        <label class="mini">区画別の内訳</label>
+        <div class="plan-lots" data-pi="${i}">${lotsHtml(pl, i)}</div>
+        <label class="mini">造成費 (万円) <span style="font-weight:400;opacity:.7">分筆・測量・道路築造・解体など</span></label>
+        <input type="text" inputmode="numeric" class="plan-dev jsnum" data-pi="${i}" value="${escapeHtml(pl.devCost ?? '')}" placeholder="800">
+        <div class="plan-result" data-pi="${i}">${planResultHtml(pl)}</div>
+      </div>`).join('');
+
+    wrap.querySelectorAll('.plan-name').forEach(el => el.addEventListener('input', () => { workingPlans[+el.dataset.pi].name = el.value; }));
+    wrap.querySelectorAll('.plan-dev').forEach(el => el.addEventListener('input', () => { workingPlans[+el.dataset.pi].devCost = el.value; updateResult(+el.dataset.pi); }));
+    wrap.querySelectorAll('.plan-tsubo').forEach(el => el.addEventListener('input', () => {
+      const i = +el.dataset.pi; workingPlans[i].tsuboUnit = el.value; workingPlans[i].grade = 'カスタム';
+      const g = wrap.querySelector(`.plan-grade[data-pi="${i}"]`); if (g) g.value = 'カスタム';
+      updateResult(i);
+    }));
+    wrap.querySelectorAll('.plan-grade').forEach(el => el.addEventListener('change', () => {
+      const i = +el.dataset.pi; workingPlans[i].grade = el.value;
+      const g = GRADES.find(x => x.name === el.value);
+      if (g) { workingPlans[i].tsuboUnit = g.tsubo; const t = wrap.querySelector(`.plan-tsubo[data-pi="${i}"]`); if (t) t.value = g.tsubo; }
+      updateResult(i);
+    }));
+    wrap.querySelectorAll('.plan-sell').forEach(el => el.addEventListener('change', () => {
+      const i = +el.dataset.pi; workingPlans[i].sellType = el.value; renderPlans();
+    }));
+    wrap.querySelectorAll('.plan-units').forEach(el => el.addEventListener('change', () => {
+      const i = +el.dataset.pi;
+      const u = Math.min(MAX_UNITS, Math.max(1, parseInt(el.value) || 1));
+      el.value = u; workingPlans[i].units = u;
+      const box = wrap.querySelector(`.plan-lots[data-pi="${i}"]`);
+      if (box) { box.innerHTML = lotsHtml(workingPlans[i], i); bindLots(box); }
+      updateResult(i); updateAuto(i);
+    }));
+    wrap.querySelectorAll('.plan-adopt-radio').forEach(el => el.addEventListener('change', () => {
+      const i = +el.dataset.pi;
+      workingPlans.forEach((pl, j) => { pl.adopted = (j === i); });
+      wrap.querySelectorAll('.plan-card').forEach(c => c.classList.toggle('adopted', +c.dataset.pi === i));
+    }));
+    wrap.querySelectorAll('.plan-del').forEach(el => el.addEventListener('click', () => {
+      if (!confirm('このパターンを削除しますか?')) return;
+      workingPlans.splice(+el.dataset.pi, 1); renderPlans();
+    }));
+    bindLots(wrap);
+  }
+
+  // 「各区画に入れる」は再描画されるのでイベント委譲
+  document.getElementById('plans-wrap').addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-plan-fill]');
+    if (!a) return;
+    const i = +a.closest('.plan-auto').dataset.pi;
+    const pr = propForCalc();
+    const land = areaOf(pr), far = num(document.getElementById('f-far').value);
+    if (land <= 0 || far <= 0) return;
+    const pl = workingPlans[i];
+    const units = Math.max(1, parseInt(pl.units) || 1);
+    const per = (land * far / 100 / units).toFixed(2);
+    const perLand = (land / units).toFixed(2);
+    pl.lots = pl.lots || [];
+    for (let u = 0; u < units; u++) {
+      if (!pl.lots[u]) pl.lots[u] = { land:'', floor:'', price:'' };
+      if (!pl.lots[u].land) pl.lots[u].land = perLand;
+      if (!pl.lots[u].floor) pl.lots[u].floor = per;
+    }
+    renderPlans();
+  });
+
+  document.getElementById('plan-add').addEventListener('click', () => {
+    if (workingPlans.length >= 6) { alert('パターンは6つまでです'); return; }
+    const defaults = [3, 4, 1, 2, 5, 6];
+    const u = defaults[workingPlans.length] || 3;
+    workingPlans.push({
+      name: u === 1 ? '一棟案' : `${u}分割案`, sellType: '建売分譲',
+      grade: '標準', tsuboUnit: 80, devCost: '', units: u,
+      lots: [], adopted: workingPlans.length === 0,
+    });
+    renderPlans();
+  });
+
+  ['f-price','f-land','f-bldg','f-far'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateAllPlans);
+  });
+
+  /* --- 添付 --- */
+  function renderAttachmentsPreview() {
+    const el = document.getElementById('attachments-preview');
+    el.innerHTML = workingAttachments.map((a, i) => a.type && a.type.startsWith('image/')
+      ? `<div class="attachment-item"><img src="${a.data}" alt="${escapeHtml(a.name)}" />
+           <button class="attachment-remove" data-rm-idx="${i}" type="button">×</button></div>`
+      : `<div class="attachment-item pdf"><div class="pdf-icon">📄</div><div class="pdf-name">${escapeHtml(a.name)}</div>
+           <button class="attachment-remove" data-rm-idx="${i}" type="button">×</button></div>`).join('');
+    el.querySelectorAll('[data-rm-idx]').forEach(b => b.addEventListener('click', () => {
+      workingAttachments.splice(+b.dataset.rmIdx, 1); renderAttachmentsPreview();
+    }));
+  }
+  function readFile(file) {
+    return new Promise((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve({ name: file.name, type: file.type, data: r.result });
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(file);
+    });
+  }
+  async function handleFiles(files) {
+    const status = document.getElementById('form-status');
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) { status.textContent = `${file.name} は10MBを超えるためスキップしました`; continue; }
+      const att = await readFile(file);
+      if (att) workingAttachments.push(att);
+    }
+    renderAttachmentsPreview();
+    status.textContent = '';
+  }
+  const dropZone = document.getElementById('drop-zone');
+  document.getElementById('f-files').addEventListener('change', (e) => handleFiles(e.target.files));
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+
+  renderStations();
+  renderPlans();
+  renderAttachmentsPreview();
+  applyTypeSpec();
+
+  /* --- 保存 --- */
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('form-close-x').onclick = close;
+  document.getElementById('form-cancel').onclick = close;
+  document.getElementById('form-save').onclick = async () => {
+    const now = new Date().toISOString();
+    const type = document.getElementById('f-type').value;
+    const s = specOf(type);
+    const land = document.getElementById('f-land').value;
+    const bldg = document.getElementById('f-bldg').value;
+    const leaseValue = document.getElementById('f-lease-value').value;
+    const bldgValue  = document.getElementById('f-bldg-value').value;
+
+    const data = {
+      ...(isEdit ? { id: p.id, createdAt: p.createdAt || now } : { createdAt: now }),
+      updatedAt: now,
+      name: document.getElementById('f-name').value.trim(),
+      address: document.getElementById('f-address').value.trim(),
+      agent: document.getElementById('f-agent').value.trim(),
+      status: workingStatus,
+      type,
+      layout: s.layout ? document.getElementById('f-layout').value : '',
+      age: s.age ? document.getElementById('f-age').value : '',
+      landArea: s.land ? land : '',
+      bldgArea: s.bldg ? bldg : '',
+      bcr: s.bcr ? document.getElementById('f-bcr').value : '',
+      far: s.bcr ? document.getElementById('f-far').value : '',
+      price: s.lease ? String(num(leaseValue) + num(bldgValue)) : (s.price ? document.getElementById('f-price').value : ''),
+      leaseValue: s.lease ? leaseValue : '',
+      bldgValue:  s.lease ? bldgValue  : '',
+      groundRent: s.lease ? document.getElementById('f-ground-rent').value : '',
+      leaseYears: s.lease ? document.getElementById('f-lease-years').value : '',
+      leaseType:  s.lease ? document.getElementById('f-lease-type').value : '',
+      monthlyRent: s.income ? document.getElementById('f-rent').value : '',
+      yield:       s.income ? document.getElementById('f-yield').value : '',
+      stations: workingStations.filter(x => (x.name || '').trim() || (x.line || '').trim())
+        .map(x => ({ line: (x.line||'').trim(), name: (x.name||'').trim(), min: x.min || '' })),
+      plans: s.plans ? workingPlans.map(pl => {
+        const u = Math.min(MAX_UNITS, Math.max(1, parseInt(pl.units) || 1));
+        return {
+          name: pl.name || '', sellType: pl.sellType || '建売分譲',
+          grade: pl.grade || '標準', tsuboUnit: pl.tsuboUnit ?? '', devCost: pl.devCost ?? '',
+          units: u,
+          lots: Array.from({ length: u }, (_, k) => ({
+            land:  (pl.lots?.[k]?.land)  ?? '',
+            floor: (pl.lots?.[k]?.floor) ?? '',
+            price: (pl.lots?.[k]?.price) ?? '',
+          })),
+          adopted: !!pl.adopted,
+        };
+      }) : [],
+      memo: document.getElementById('f-memo').value,
+      attachments: workingAttachments,
+      lat: isEdit ? p.lat : null,
+      lng: isEdit ? p.lng : null,
+    };
+    // 並び替え・CSV互換のため代表面積を保持
+    data.area = s.land ? (land || bldg) : (bldg || land);
+
+    if (!data.name || !data.address) { alert('物件名と住所は必須です'); return; }
+
+    const status = document.getElementById('form-status');
+    const saveBtn = document.getElementById('form-save');
+    saveBtn.disabled = true;
+
+    if (!isEdit || p.address !== data.address) {
+      status.textContent = '住所から位置を取得中...';
+      const coords = await geocode(data.address);
+      if (coords) { data.lat = coords.lat; data.lng = coords.lng; }
+    }
+    if (isEdit) properties = properties.map(x => x.id === data.id ? data : x);
+    else { data.id = Date.now().toString(); properties.push(data); }
+
+    if (!await savePropertyToFirestore(data)) {
+      alert('保存に失敗しました。インターネット接続を確認してください。');
+      saveBtn.disabled = false;
+      return;
+    }
+    selectedId = data.id;
+    close(); render(); syncMarkers(); panToSelected();
+    if (!data.lat || !data.lng) setTimeout(() => alert('住所から位置が見つかりませんでした。住所を確認してください。'), 200);
+  };
+}
+
+/* ===== 絞り込み状態 ===== */
+let filterSort = 'updated';
+let filterPriceMin = '', filterPriceMax = '';
+let filterAreaMin = '', filterAreaMax = '';
+let filterWalk = '';
+let filterInBounds = false;
+let radiusM = 0;              // 駅からの半径 (0=オフ)
+let radiusCenter = null;      // {lat, lng, label}
+let radiusCircle = null;
+
+function readFilterInputs() {
+  const v = (id) => (document.getElementById(id)?.value ?? '').trim();
+  filterText     = v('search-input').toLowerCase();
+  filterType     = v('type-filter');
+  filterStatus   = v('status-filter');
+  filterSort     = v('sort-select') || 'updated';
+  filterPriceMin = v('f-price-min');
+  filterPriceMax = v('f-price-max');
+  filterAreaMin  = v('f-area-min');
+  filterAreaMax  = v('f-area-max');
+  filterWalk     = v('f-walk-max');
+  filterInBounds = !!document.getElementById('f-in-bounds')?.checked;
+  radiusM        = Number(v('radius-select') || 0);
+}
+
+function clearFilters() {
+  ['search-input','f-price-min','f-price-max','f-area-min','f-area-max','f-walk-max']
+    .forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  ['type-filter','status-filter'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  const s = document.getElementById('sort-select'); if (s) s.value = 'updated';
+  const b = document.getElementById('f-in-bounds'); if (b) b.checked = false;
+  const r = document.getElementById('radius-select'); if (r) r.value = '0';
+  readFilterInputs(); updateRadiusCircle(); render(); syncMarkers();
+}
+
+function filtered() {
+  const t = filterText;
+  let bounds = null;
+  if (filterInBounds && map && map.getBounds) bounds = map.getBounds();
+
+  let list = properties.filter(p => {
+    if (t) {
+      const hay = [p.name, p.address, p.agent, p.memo, stationLabel(p)]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(t)) return false;
+    }
+    if (filterType && p.type !== filterType) return false;
+    if (filterStatus && statusOf(p) !== filterStatus) return false;
+
+    const pr = priceOf(p);
+    if (filterPriceMin && pr < Number(filterPriceMin)) return false;
+    if (filterPriceMax && (pr === 0 || pr > Number(filterPriceMax))) return false;
+
+    const ar = areaOf(p);
+    if (filterAreaMin && ar < Number(filterAreaMin)) return false;
+    if (filterAreaMax && (ar === 0 || ar > Number(filterAreaMax))) return false;
+
+    if (filterWalk) { const w = walkOf(p); if (w == null || w > Number(filterWalk)) return false; }
+
+    if (bounds && p.lat && p.lng && !bounds.contains(new google.maps.LatLng(p.lat, p.lng))) return false;
+
+    if (radiusM > 0 && radiusCenter) {
+      if (!p.lat || !p.lng) return false;
+      if (distanceM(radiusCenter.lat, radiusCenter.lng, p.lat, p.lng) > radiusM) return false;
+    }
+    return true;
+  });
+
+  const byNum = (f) => (a, b) => f(b) - f(a);
+  switch (filterSort) {
+    case 'created':    list.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||'')); break;
+    case 'price_desc': list.sort(byNum(priceOf)); break;
+    case 'price_asc':  list.sort((a,b) => (priceOf(a)||Infinity) - (priceOf(b)||Infinity)); break;
+    case 'area_desc':  list.sort(byNum(areaOf)); break;
+    case 'walk_asc':   list.sort((a,b) => (walkOf(a) ?? 999) - (walkOf(b) ?? 999)); break;
+    case 'name':       list.sort((a,b) => (a.name||'').localeCompare(b.name||'', 'ja')); break;
+    default:           list.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+  }
+  return list;
+}
+
+function updateRadiusCircle() {
+  if (radiusCircle) { radiusCircle.setMap(null); radiusCircle = null; }
+  if (!map || !radiusM || !radiusCenter) return;
+  radiusCircle = new google.maps.Circle({
+    map, center: { lat: radiusCenter.lat, lng: radiusCenter.lng }, radius: radiusM,
+    strokeColor: '#c9a961', strokeOpacity: 0.9, strokeWeight: 2,
+    fillColor: '#c9a961', fillOpacity: 0.10, clickable: false, zIndex: 1,
+  });
+}
+
+function updateRadiusUI() {
+  const box = document.getElementById('radius-box');
+  const lbl = document.getElementById('radius-label');
+  if (!box) return;
+  box.style.display = radiusCenter ? '' : 'none';
+  if (lbl && radiusCenter) lbl.textContent = radiusCenter.label || '検索地点';
+}
+
+/* ===== 一覧 ===== */
+function renderList() {
+  const list = filtered();
+  const el = document.getElementById('property-list');
+  const cnt = document.getElementById('filter-count');
+  if (cnt) cnt.textContent = `${list.length} / ${properties.length} 件`;
+
+  if (!list.length) {
+    el.innerHTML = `<div style="padding:28px 16px; text-align:center; color:#7a7060; font-size:13px;">
+      ${properties.length === 0 ? '物件を追加して始めましょう' : '該当する物件がありません'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(p => {
+    const meta = typeMeta(p.type);
+    const sel = selectedId === p.id;
+    const status = statusOf(p);
+    const sm = statusMeta(status);
+    const y = computeYield(p);
+    const ar = areaOf(p);
+    const pr = priceOf(p);
+    const st = stationLabel(p);
+    const bp = bestPlan(p);
+    return `
+      <div class="property-item ${sel ? 'selected' : ''}" data-id="${p.id}" style="${sel ? `border-left-color:${meta.color};` : ''}">
+        <div class="name">${escapeHtml(p.name || '(無題)')}</div>
+        <div style="margin-top:4px;">
+          <span class="status-badge ${status}">${sm.short}</span>
+          <span class="pill" style="background:${meta.bg}; color:${meta.text};">${p.type || '未設定'}</span>
+          ${p.layout ? `<span class="li-sub">${p.layout}</span>` : ''}
+          ${ar ? `<span class="li-sub">${ar}㎡</span>` : ''}
+          ${p.age ? `<span class="li-sub">築${p.age}年</span>` : ''}
+        </div>
+        ${st ? `<div class="li-station">🚃 ${escapeHtml(st)}</div>` : ''}
+        <div class="address">${escapeHtml(p.address || '住所未登録')}</div>
+        ${pr ? `<div class="price">${formatYen(pr)}${y != null ? ` <span style="font-size:11px; color:#7a7060; font-weight:400;">利回り ${y.toFixed(2)}%</span>` : ''}</div>` : ''}
+        ${bp ? `<div class="li-plan">
+            ${escapeHtml(bp.pl.name || '企画')} 土地の売値 ${man(bp.c.revenue)}万${bp.c.buildCost > 0 ? ` ／ 建築費 ${man(bp.c.buildCost)}万` : ''}
+          </div>` : ''}
+        ${(p.agent || p.createdAt) ? `<div class="meta" style="margin-top:4px; display:flex; justify-content:space-between; gap:8px;">
+          <span>${p.agent ? '担当: ' + escapeHtml(p.agent) : ''}</span>
+          <span>${p.createdAt ? formatDate(p.createdAt) : ''}</span>
+        </div>` : ''}
+      </div>`;
+  }).join('');
+  el.querySelectorAll('.property-item').forEach(node =>
+    node.addEventListener('click', () => selectProperty(node.dataset.id)));
+}
+
+/* ===== 詳細 ===== */
+function plansDetailHtml(p) {
+  const list = sortedPlans(p);
+  if (!list.length) return '';
+  return `<div style="margin-bottom:10px;">
+    <div class="sec-label">企画検討</div>
+    ${list.map(({ pl, c }) => `
+      <div class="plan-detail ${pl.adopted ? 'adopted' : ''}">
+        <div><span class="pname">${escapeHtml(pl.name || '企画')}</span>
+          ${pl.adopted ? '<span class="tag">採用</span>' : ''}
+          <span style="float:right; color:#7a7060;">${pl.sellType || ''} / ${c.units}区画</span></div>
+        <div style="color:#5a5448;">
+          土地の売値 ${man(c.revenue)}万${c.buildCost > 0 ? ` ／ 建築費 ${man(c.buildCost)}万` : ''}
+          ${c.floorSum > 0 ? `／ 総延床 ${c.floorSum.toFixed(1)}㎡` : ''}
+          ${c.totalLand > 0 && c.roadArea > 0 ? `／ 潰れ地 ${c.roadArea.toFixed(1)}㎡` : ''}
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderDetail() {
+  const card = document.getElementById('detail-card');
+  const p = properties.find(x => x.id === selectedId);
+  if (!p) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  const meta = typeMeta(p.type);
+  const y = computeYield(p);
+  const s = specOf(p.type);
+  const row = (label, value) => value ? `<div class="detail-item"><div class="label">${label}</div><div class="value">${value}</div></div>` : '';
+
+  card.innerHTML = `
+    <div class="header-row">
+      <h3>${escapeHtml(p.name || '(無題)')}</h3>
+      <button class="close-btn" id="detail-close">×</button>
+    </div>
+    <div class="actions-row">
+      <a href="${svUrl(p.lat, p.lng, p.address)}" target="_blank" rel="noopener noreferrer" class="btn-action btn-sv">👁 ストリートビュー</a>
+      <a href="${gmUrl(p.lat, p.lng, p.address)}" target="_blank" rel="noopener noreferrer" class="btn-action btn-gm">🗺 Googleマップ</a>
+    </div>
+    <div class="detail-content">
+      <div style="margin-bottom:10px;">
+        <span class="status-badge ${statusOf(p)}">${statusMeta(statusOf(p)).name}</span>
+        <span class="pill" style="background:${meta.bg}; color:${meta.text};">${p.type || '未設定'}</span>
+      </div>
+      ${(p.agent || p.createdAt) ? `<div class="meta-row">
+        <span>${p.agent ? '担当: <span class="agent">' + escapeHtml(p.agent) + '</span>' : ''}</span>
+        <span>${p.createdAt ? '入力: ' + formatDate(p.createdAt) : ''}${p.updatedAt && p.updatedAt !== p.createdAt ? ' (更新: ' + formatDate(p.updatedAt) + ')' : ''}</span>
+      </div>` : ''}
+      <div class="detail-address">${escapeHtml(p.address || '住所未登録')}</div>
+      ${stationLabel(p) ? `<div class="detail-station">🚃 ${escapeHtml(stationLabel(p))}</div>` : ''}
+      <div class="detail-grid">
+        ${row('間取り', s.layout ? p.layout : '')}
+        ${row('築年数', s.age && p.age ? p.age + ' 年' : '')}
+        ${row('土地面積', s.land && p.landArea ? p.landArea + ' ㎡' : '')}
+        ${row(p.type === '区分マンション' ? '専有面積' : '建物面積', s.bldg && p.bldgArea ? p.bldgArea + ' ㎡' : '')}
+        ${row('建蔽率 / 容積率', s.bcr && (p.bcr || p.far) ? `${p.bcr || '—'} / ${p.far || '—'} %` : '')}
+        ${row('価格', !s.lease && priceOf(p) ? formatYen(priceOf(p)) : '')}
+        ${row('借地権価格', s.lease && p.leaseValue ? formatYen(p.leaseValue) : '')}
+        ${row('建物価格', s.lease && p.bldgValue ? formatYen(p.bldgValue) : '')}
+        ${row('総額', s.lease && priceOf(p) ? formatYen(priceOf(p)) : '')}
+        ${row('月額地代', s.lease && p.groundRent ? Number(p.groundRent).toLocaleString() + '円' : '')}
+        ${row('借地権', s.lease && p.leaseType ? p.leaseType + (p.leaseYears ? ` / 残${p.leaseYears}年` : '') : '')}
+        ${row('月額家賃', s.income && p.monthlyRent ? Number(p.monthlyRent).toLocaleString() + '円' : '')}
+        ${row('利回り', s.income && y != null ? y.toFixed(2) + ' %' : '')}
+      </div>
+      ${plansDetailHtml(p)}
+      ${p.memo ? `<div class="memo-box">${escapeHtml(p.memo)}</div>` : ''}
+      ${(p.attachments && p.attachments.length) ? `<div style="margin-bottom:10px;">
+        <div class="sec-label">添付ファイル (${p.attachments.length})</div>
+        <div class="attachments-grid" id="detail-attachments"></div></div>` : ''}
+      <div class="edit-row">
+        <button class="btn-secondary" id="detail-edit" style="flex:1; justify-content:center;">編集</button>
+        <button class="btn-secondary" id="detail-delete" style="flex:1; justify-content:center; color:#b91c1c; border-color:#e5b4b4;">削除</button>
+      </div>
+    </div>`;
+
+  if (p.attachments && p.attachments.length) {
+    const attEl = document.getElementById('detail-attachments');
+    attEl.innerHTML = p.attachments.map((a, i) => a.type && a.type.startsWith('image/')
+      ? `<div class="attachment-item"><img src="${a.data}" alt="${escapeHtml(a.name)}" data-att-idx="${i}" /></div>`
+      : `<a href="${a.data}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(a.name)}" class="attachment-item pdf">
+           <div class="pdf-icon">📄</div><div class="pdf-name">${escapeHtml(a.name)}</div></a>`).join('');
+    attEl.querySelectorAll('img[data-att-idx]').forEach(img =>
+      img.addEventListener('click', () => openLightbox(img.src)));
+  }
+  document.getElementById('detail-close').onclick = () => { selectedId = null; render(); syncMarkers(); };
+  document.getElementById('detail-edit').onclick = () => openForm(p);
+  document.getElementById('detail-delete').onclick = () => deleteProperty(p.id);
+}
+
+function render() {
+  document.getElementById('count-badge').textContent = properties.length + ' 件';
+  renderLegend();
+  renderTypeFilter();
+  renderList();
+  renderDetail();
+  updateBackupWarning();
+}
+
+/* ===== CSV ===== */
+const CSV_HEADERS = ['物件名','住所','ステータス','担当者','物件種別','間取り','築年数',
+  '土地面積(㎡)','建物面積(㎡)','建蔽率(%)','容積率(%)','価格(万円)',
+  '借地権価格(万円)','建物価格(万円)','月額地代(円)','借地権種類','残存年数',
+  '最寄駅','徒歩(分)','月額家賃(円)','利回り(%)','緯度','経度','メモ','入力日','最終更新','添付件数',
+  '採用企画','売り方','区画数','区画別土地(㎡)','区画別延床(㎡)','区画別売価(万円)',
+  '建築費(万円)','造成費(万円)','土地の売値(万円)'];
+
+function exportCSV() {
+  if (!properties.length) return;
+  const rows = properties.map(p => {
+    const b = bestPlan(p);
+    const pl = b ? b.pl : null, c = b ? b.c : null;
+    const y = computeYield(p);
+    return [
+      p.name, p.address, statusMeta(statusOf(p)).name, p.agent || '',
+      p.type, p.layout, p.age,
+      p.landArea || '', p.bldgArea || '', p.bcr || '', p.far || '', priceOf(p) || '',
+      p.leaseValue || '', p.bldgValue || '', p.groundRent || '', p.leaseType || '', p.leaseYears || '',
+      stationLabel(p), walkOf(p) ?? '',
+      p.monthlyRent || '', y != null ? y.toFixed(2) : '',
+      p.lat, p.lng, p.memo,
+      p.createdAt ? formatDate(p.createdAt) : '', p.updatedAt ? formatDate(p.updatedAt) : '',
+      (p.attachments || []).length,
+      pl ? (pl.name || '') : '', pl ? (pl.sellType || '') : '', c ? c.units : '',
+      pl ? (pl.lots || []).map(l => l.land).join(' / ')  : '',
+      pl ? (pl.lots || []).map(l => l.floor).join(' / ') : '',
+      pl ? (pl.lots || []).map(l => l.price).join(' / ') : '',
+      c ? Math.round(c.buildCost) : '', c ? c.devCost : '',
+      c ? c.revenue : '',
+    ];
+  });
+  const csv = [CSV_HEADERS, ...rows]
+    .map(r => r.map(c => `"${(c ?? '').toString().replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `properties_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function importCSV(file) {
+  const rows = parseCSV(await file.text());
+  if (rows.length < 2) { alert('CSVに有効なデータが見つかりませんでした'); return; }
+  const headers = rows[0].map(h => h.trim());
+  const idx = (n) => headers.indexOf(n);
+  const C = {
+    name: idx('物件名'), address: idx('住所'), status: idx('ステータス'), agent: idx('担当者'),
+    type: idx('物件種別'), layout: idx('間取り'), age: idx('築年数'),
+    landArea: idx('土地面積(㎡)'), bldgArea: idx('建物面積(㎡)'), areaOld: idx('面積(㎡)'),
+    bcr: idx('建蔽率(%)'), far: idx('容積率(%)'), price: idx('価格(万円)'),
+    leaseValue: idx('借地権価格(万円)'), bldgValue: idx('建物価格(万円)'),
+    groundRent: idx('月額地代(円)'), leaseType: idx('借地権種類'), leaseYears: idx('残存年数'),
+    station: idx('最寄駅'), walk: idx('徒歩(分)'),
+    rent: idx('月額家賃(円)'), rentOld: idx('想定月額家賃(円)'), yield: idx('利回り(%)'),
+    lat: idx('緯度'), lng: idx('経度'), memo: idx('メモ'),
+    createdAt: idx('入力日'), updatedAt: idx('最終更新'),
+  };
+  if (C.name === -1 || C.address === -1) { alert('「物件名」「住所」の列が必要です'); return; }
+  const get = (row, k) => C[k] >= 0 ? (row[C[k]] || '').trim() : '';
+
+  const dataRows = rows.slice(1);
+  if (!confirm(`${dataRows.length}件をインポートします。\n(物件名と住所が同じ既存物件はスキップされます)`)) return;
+
+  const existing = new Set(properties.map(p => `${p.name}|${p.address}`));
+  let imported = 0, skipped = 0;
+  const now = new Date().toISOString();
+  setSyncStatus('インポート中...', '#c9a961');
+
+  for (const row of dataRows) {
+    const name = get(row, 'name'), address = get(row, 'address');
+    if (!name || !address) { skipped++; continue; }
+    const key = `${name}|${address}`;
+    if (existing.has(key)) { skipped++; continue; }
+    existing.add(key);
+
+    const type = get(row, 'type');
+    const s = specOf(type);
+    const areaOld = get(row, 'areaOld');
+    let landArea = get(row, 'landArea'), bldgArea = get(row, 'bldgArea');
+    if (!landArea && !bldgArea && areaOld) { if (s.land) landArea = areaOld; else bldgArea = areaOld; }
+
+    const stName = get(row, 'station'), stMin = get(row, 'walk');
+    const lat = parseFloat(get(row, 'lat')), lng = parseFloat(get(row, 'lng'));
+    const createdAt = parseDate(get(row, 'createdAt')) || now;
+
+    const data = {
+      id: String(Date.now() + Math.random()), name, address,
+      status: STATUS_NAME_TO_KEY[get(row, 'status')] || DEFAULT_STATUS,
+      agent: get(row, 'agent'), type, layout: get(row, 'layout'), age: get(row, 'age'),
+      landArea, bldgArea, area: landArea || bldgArea,
+      bcr: get(row, 'bcr'), far: get(row, 'far'), price: get(row, 'price'),
+      leaseValue: get(row, 'leaseValue'), bldgValue: get(row, 'bldgValue'),
+      groundRent: get(row, 'groundRent'), leaseType: get(row, 'leaseType'), leaseYears: get(row, 'leaseYears'),
+      stations: stName ? [{ line: '', name: stName, min: stMin }] : [],
+      monthlyRent: get(row, 'rent') || get(row, 'rentOld'), yield: get(row, 'yield'),
+      memo: get(row, 'memo'), plans: [], attachments: [],
+      lat: !isNaN(lat) ? lat : null, lng: !isNaN(lng) ? lng : null,
+      createdAt, updatedAt: parseDate(get(row, 'updatedAt')) || createdAt,
+    };
+    if (!data.lat || !data.lng) {
+      const co = await geocode(address);
+      if (co) { data.lat = co.lat; data.lng = co.lng; }
+      await new Promise(r => setTimeout(r, 120));
+    }
+    if (await savePropertyToFirestore(data)) imported++; else skipped++;
+  }
+  setSyncStatus('● 同期済み', '#1D9E75');
+  alert(`${imported}件を取り込みました${skipped ? `\n(${skipped}件はスキップ)` : ''}`);
+}
+
+
+/* ===== 絞り込みUIの配線 ===== */
+function setupFilterUI() {
+  const ids = ['search-input','type-filter','status-filter','sort-select',
+               'f-price-min','f-price-max','f-area-min','f-area-max','f-walk-max'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input',  () => { readFilterInputs(); renderList(); syncMarkers(); });
+    el.addEventListener('change', () => { readFilterInputs(); renderList(); syncMarkers(); });
+  });
+  const b = document.getElementById('f-in-bounds');
+  if (b) b.addEventListener('change', () => { readFilterInputs(); renderList(); syncMarkers(); });
+  const r = document.getElementById('radius-select');
+  if (r) r.addEventListener('change', () => { readFilterInputs(); updateRadiusCircle(); renderList(); syncMarkers(); });
+  const c = document.getElementById('filter-clear');
+  if (c) c.addEventListener('click', clearFilters);
+  const t = document.getElementById('adv-toggle');
+  const body = document.getElementById('adv-body');
+  if (t && body) t.addEventListener('click', () => {
+    const on = body.style.display === 'none';
+    body.style.display = on ? 'block' : 'none';
+    t.textContent = on ? '− 詳細条件' : '＋ 詳細条件';
+  });
+  const bk = document.getElementById('backup-btn');
+  if (bk) bk.addEventListener('click', openBackupModal);
+  const wb = document.getElementById('warn-backup-btn');
+  if (wb) wb.addEventListener('click', openBackupModal);
+  readFilterInputs();
+}
+document.addEventListener('DOMContentLoaded', setupFilterUI);
+if (document.readyState !== 'loading') setupFilterUI();
+
+</script>
+</body>
+</html>
