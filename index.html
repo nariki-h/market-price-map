@@ -432,6 +432,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
+  .field-row > .field { min-width: 0; }
   .unit-pair {
     display: flex;
     align-items: center;
@@ -2148,17 +2149,18 @@ function openForm(existing) {
             </div>
           </div>
 
-          <div class="field-row">
-            <div class="field" data-fld="land">
-              <label>土地面積</label>
-              <div class="unit-pair">
-                <input type="text" inputmode="decimal" class="jsnum" id="f-land" value="${escapeHtml(landArea)}" placeholder="68.5"><span class="unit-suffix">㎡</span>
-                <input type="text" inputmode="decimal" class="jsnum" id="f-land-tsubo" value="${escapeHtml(landArea ? (num(landArea) / TSUBO).toFixed(2) : '')}" placeholder="20.72"><span class="unit-suffix">坪</span>
-              </div>
+          <div class="field" data-fld="land">
+            <label>土地面積</label>
+            <div class="unit-pair">
+              <input type="text" inputmode="decimal" class="jsnum" id="f-land" value="${escapeHtml(landArea)}" placeholder="68.5"><span class="unit-suffix">㎡</span>
+              <input type="text" inputmode="decimal" class="jsnum" id="f-land-tsubo" value="${escapeHtml(landArea ? (num(landArea) / TSUBO).toFixed(2) : '')}" placeholder="20.72"><span class="unit-suffix">坪</span>
             </div>
-            <div class="field" data-fld="bldg">
-              <label id="f-bldg-label">建物面積 (㎡)</label>
-              <input type="text" inputmode="decimal" class="jsnum" id="f-bldg" value="${escapeHtml(bldgArea)}" placeholder="97.2">
+          </div>
+          <div class="field" data-fld="bldg">
+            <label id="f-bldg-label">建物面積</label>
+            <div class="unit-pair">
+              <input type="text" inputmode="decimal" class="jsnum" id="f-bldg" value="${escapeHtml(bldgArea)}" placeholder="97.2"><span class="unit-suffix">㎡</span>
+              <input type="text" inputmode="decimal" class="jsnum" id="f-bldg-tsubo" value="${escapeHtml(bldgArea ? (num(bldgArea) / TSUBO).toFixed(2) : '')}" placeholder="29.41"><span class="unit-suffix">坪</span>
             </div>
           </div>
 
@@ -2278,7 +2280,7 @@ function openForm(existing) {
     show('income', !!s.income);
     show('plans', !!s.plans);
     const bl = document.getElementById('f-bldg-label');
-    if (bl) bl.textContent = typeSel.value === '区分マンション' ? '専有面積 (㎡)' : '建物面積 (㎡)';
+    if (bl) bl.textContent = typeSel.value === '区分マンション' ? '専有面積' : '建物面積';
     updateLeaseTotal();
     updateAllPlans();
   }
@@ -2296,6 +2298,20 @@ function openForm(existing) {
       const v = num(landTsuboEl.value);
       landEl.value = v > 0 ? +(v * TSUBO).toFixed(2) : '';
       updateAllPlans();
+    });
+  }
+
+  /* --- 建物面積: ㎡ ⇔ 坪 の相互自動計算 --- */
+  const bldgEl = document.getElementById('f-bldg');
+  const bldgTsuboEl = document.getElementById('f-bldg-tsubo');
+  if (bldgEl && bldgTsuboEl) {
+    bldgEl.addEventListener('input', () => {
+      const v = num(bldgEl.value);
+      bldgTsuboEl.value = v > 0 ? +(v / TSUBO).toFixed(2) : '';
+    });
+    bldgTsuboEl.addEventListener('input', () => {
+      const v = num(bldgTsuboEl.value);
+      bldgEl.value = v > 0 ? +(v * TSUBO).toFixed(2) : '';
     });
   }
 
@@ -2510,7 +2526,7 @@ function openForm(existing) {
     const defaults = [3, 4, 1, 2, 5, 6];
     const u = defaults[workingPlans.length] || 3;
     workingPlans.push({
-      name: u === 1 ? '一棟案' : `${u}分割案`, sellType: '建売分譲',
+      name: u === 1 ? '一棟案' : `${u}分割案`, sellType: '更地分譲',
       grade: '標準', tsuboUnit: 80, devCost: '', units: u,
       lots: [], adopted: workingPlans.length === 0,
     });
