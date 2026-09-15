@@ -437,7 +437,7 @@
     align-items: center;
     gap: 5px;
   }
-  .unit-pair input { width: auto; flex: 1; min-width: 0; }
+  .unit-pair input { width: auto; flex: 1; min-width: 0; padding-left: 7px; padding-right: 7px; }
   .unit-pair .unit-suffix {
     font-size: 12px;
     color: #5a5448;
@@ -885,6 +885,9 @@
     aside.hidden { display: none; }
     main { width: 100%; height: 100%; }
     .detail-card { width: calc(100% - 24px); right: 12px; left: 12px; bottom: 60px; }
+    /* 狭い画面では2カラムをやめて入力欄を全幅に */
+    .field-row { grid-template-columns: 1fr; gap: 0; }
+    .modal-body { padding: 14px; }
   }
 
 
@@ -944,7 +947,8 @@
   .plan-card input, .plan-card select { width: 100%; padding: 6px 8px; border: 1px solid #c9c0a8; border-radius: 3px; background: #fdfcf7; font-size: 13px; font-family: inherit; }
   .plan-card input:disabled { background: #eceae2; color: #9a9080; }
   .plan-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .lot-head, .lot-row { display: grid; grid-template-columns: 22px 1fr 1fr 1fr; gap: 5px; align-items: center; }
+  .lot-head, .lot-row { display: grid; grid-template-columns: 20px 1fr 1fr 1fr; gap: 4px; align-items: center; }
+  .lot-row input { min-width: 0; padding-left: 6px; padding-right: 6px; text-align: right; }
   .lot-head { font-size: 9px; color: #7a7060; font-family: 'JetBrains Mono', monospace; margin-bottom: 3px; text-align: center; }
   .lot-row { margin-bottom: 4px; }
   .lot-no { font-size: 11px; color: #9a9078; text-align: center; }
@@ -1368,6 +1372,7 @@ let geocoder = null;
 let placesService = null;
 let searchMarker = null;
 let markers = {};
+let lastFitKey = null;   // 直近にマップを全体フィットさせた物件セット
 let listVisible = true;
 let mapsLoaded = false;
 
@@ -1672,10 +1677,14 @@ function initMap() {
     center: { lat: 35.6762, lng: 139.6503 },
     zoom: 11,
     mapTypeControl: true,
+    mapTypeControlOptions: { position: google.maps.ControlPosition.TOP_LEFT },
     streetViewControl: true,
+    streetViewControlOptions: { position: google.maps.ControlPosition.LEFT_BOTTOM },
     fullscreenControl: true,
     zoomControl: true,
+    zoomControlOptions: { position: google.maps.ControlPosition.LEFT_BOTTOM },
   });
+  addFitAllControl();
   geocoder = new google.maps.Geocoder();
   placesService = new google.maps.places.PlacesService(map);
   setupMapSearch();
@@ -1857,16 +1866,48 @@ function syncMarkers() {
     markers[p.id] = marker;
   });
 
-  if (withCoords.length > 1 && !selectedId) {
-    const bounds = new google.maps.LatLngBounds();
-    withCoords.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
-    map.fitBounds(bounds, 60);
-  } else if (withCoords.length === 1 && !selectedId) {
-    map.setCenter({ lat: withCoords[0].lat, lng: withCoords[0].lng });
-    map.setZoom(15);
+  // 表示対象の物件セットが変わったときだけ全体フィットする。
+  // （詳細カードを閉じただけ・選択を外しただけでは勝手にズームアウトしない）
+  const fitKey = withCoords.map(p => p.id).join(',');
+  if (!selectedId && fitKey !== lastFitKey) {
+    if (withCoords.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      withCoords.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+      map.fitBounds(bounds, 60);
+    } else if (withCoords.length === 1) {
+      map.setCenter({ lat: withCoords[0].lat, lng: withCoords[0].lng });
+      map.setZoom(15);
+    }
   }
+  lastFitKey = fitKey;
 
   document.getElementById('empty-hint').style.display = properties.length === 0 ? 'block' : 'none';
+}
+
+function fitAll() {
+  if (!map) return;
+  const withCoords = filtered().filter(p => p.lat != null && p.lng != null);
+  if (withCoords.length === 0) return;
+  if (withCoords.length === 1) {
+    map.setCenter({ lat: withCoords[0].lat, lng: withCoords[0].lng });
+    map.setZoom(15);
+    return;
+  }
+  const bounds = new google.maps.LatLngBounds();
+  withCoords.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+  map.fitBounds(bounds, 60);
+}
+
+function addFitAllControl() {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '全体表示';
+  btn.title = '表示中の物件が全部入るようにズーム';
+  btn.style.cssText = 'margin:0 0 22px 10px;padding:7px 11px;background:#fff;border:1px solid #c9c0a8;'
+    + 'border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:pointer;font-size:12px;'
+    + "font-family:'Noto Sans JP',sans-serif;color:#3a342a;";
+  btn.addEventListener('click', fitAll);
+  map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(btn);
 }
 
 function panToSelected() {
